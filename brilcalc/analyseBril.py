@@ -6,7 +6,7 @@ import pandas as pd
 # 1. 'lumiEach' :    Get the luminosity associated to each specified path for the entire dataset and divided in periods (A,B,C,D)
 # 2. 'lumiOverlap':  Get the overlap luminosity between specified trigger paths
 # 3. 'lumiTot':      Get the luminosity associated to the sum of the specified trigger paths, after removing overlaps
-# 4. 'lumiTotByPart'
+# 4. 'lumiTotByPart' samee as lumiTot, but done only for specified "part" (more trigger parts were active at the same time, datasets are divided in parts)
 
 
 # TODO: check all implementations
@@ -18,21 +18,24 @@ if __name__ == "__main__":
   import argparse
 
   parser = argparse.ArgumentParser(description='lumi calculations for b-parking')
-  parser.add_argument('--whichana', type=str, dest='whichana', help='whichana', default=None, choices=['lumiEach', 'lumiTot', 'lumiTotByPart', 'lumiOverlap'])
+  parser.add_argument('--whichana', type=str, dest='whichana', help='whichana', default='lumiEach', choices=['lumiEach', 'lumiTot', 'lumiTotByPart', 'lumiOverlap'])
   parser.add_argument('--part', type=str, dest='part', help='Part of the dataset you want to investigate, e.g. part0,part1,...,part5', 
-                                choices=['part0', 'part1', 'part2', 'part3', 'part4', 'part5' ], default='part0')
+                                choices=['part0', 'part1', 'part2', 'part3', 'part4', 'part5' ], default=None)
 
   opt = parser.parse_args() 
 
   #### DO NOT EDIT
   all_paths = ["HLT_Mu7_IP4", "HLT_Mu8_IP6", "HLT_Mu8_IP5" , "HLT_Mu8_IP3", "HLT_Mu8p5_IP3p5", "HLT_Mu9_IP6", "HLT_Mu9_IP5", "HLT_Mu9_IP4", "HLT_Mu10p5_IP3p5", "HLT_Mu12_IP6"]
+  #all_paths = ["HLT_Mu7_IP4", "HLT_Mu8_IP6"]
   ####
 
-  if opt.whichAna=='lumiTot' or opt.whichAna=='lumiTotByPart' or opt.whichAna=='lumiEach':
+  if opt.whichana=='lumiTot' or opt.whichana=='lumiTotByPart' or opt.whichana=='lumiEach':
     paths_to_use = all_paths
 
-  if opt.whichAna=='lumiOverlap':
-    paths_to_use =  ["HLT_Mu7_IP4","HLT_Mu8_IP6"]   
+  if opt.whichana=='lumiOverlap':
+    #paths_to_use =  ["HLT_Mu7_IP4","HLT_Mu8_IP6"]   
+    #paths_to_use =  ['HLT_Mu7_IP4']   
+    paths_to_use = all_paths
 
   #### DO NOT EDIT
   dobyls = True          # recommended, do not change
@@ -40,11 +43,12 @@ if __name__ == "__main__":
   # if false, checks by run, fill and lumi_section,  check by time is faster and it gives same results as false if dobyls==True
   ####
 
+  if opt.whichana=='lumiTotByPart' and opt.part==None: raise RuntimeError('with analysis lumiTotByPart enabled, you need to specify which part')
 
   if opt.whichana=='lumiTotByPart':
-    outf = open('analysis_output_time_byls_lumiByPart_{part}.txt'.format(part=opt.part), 'w')
+    fout = open('analysis_output_time_byls_lumiByPart_{part}.txt'.format(part=opt.part), 'w')
   else:
-    outf = open('analysis_output_time_byls_{wa}.txt'.format(wa=opt.whichana), 'w')
+    fout = open('analysis_output_time_byls_{wa}.txt'.format(wa=opt.whichana), 'w')
 
   if dobyls:
     if opt.part != None:
@@ -66,8 +70,10 @@ if __name__ == "__main__":
 
   ### create the dataframes
   dfs = {}
-  for path in paths:
+  print '==> Will read data from'
+  for path in paths_to_use:
     df = pd.read_csv(fname.format(path=path), sep=',', comment='#') 
+    print fname.format(path=path)
     dfs[path]=df
   # same calculation but doing the sum, so that it can be done for different periods
 
@@ -78,6 +84,8 @@ if __name__ == "__main__":
   if opt.whichana=='lumiEach':
     ## main analysis
     print '\n===> Lumi Each analysis'
+    fout.write('path period lumi')
+
     lumi_each_period = {} 
     for path in paths_to_use:
       print '\n=====> path =', path 
@@ -85,24 +93,28 @@ if __name__ == "__main__":
       lumi_each_period[path]['sum'] = 0
       for period in periods:
         lumi_each_period[path][period] = 0
-    
-      this_df = dfs[this_path]
-      this_run = int( row['run:fill'].split(':')[0] )
-      lumi_each_period[path]['sum'] += row['recorded(/fb)'] 
+      #
+      this_df = dfs[path]
+      for index, row in this_df.iterrows():
+        #print row['run:fill']
+        this_run = int( row['run:fill'].split(':')[0] )
+        lumi_each_period[path]['sum'] += row['recorded(/fb)'] 
+        for period in periods:
+          if this_run >= period_runs[period][0] and this_run <= period_runs[period][1]:
+            lumi_each_period[path][period] += row['recorded(/fb)']
+      
       for period in periods:
-        if this_run >= period_runs[period][0] and this_run <= period_runs[period][1]:
-          lumi_each_period[path][period] += row['recorded(/fb)']
-        print '\n=====> path={}, period={}, lumi={}'.format(path,period,lumi_each_period[path][period]) 
-      print '\n=====> path={}, period={}, lumi={}'.format(path,'sum',lumi_each_period[path]['sum']) 
-    
-    for path in paths:
-      fout.write('#path period lumi')
+        print '\n      period={}, lumi={:.3f}'.format(period,lumi_each_period[path][period]) 
+      print '\n      period={}, lumi={:.3f}'.format('sum',lumi_each_period[path]['sum']) 
+ 
+    for path in paths_to_use:
       for period in periods:
-        fout.write('\n{20:s} {10:s} {20:.3f}'.format(path,period,lumi_each_period[path][period]))
-      fout.write('\n{20:s} {10:s} {20:.3f}'.format(path,'sum',lumi_each_period[path]['sum']))
+        fout.write('\n{:20s} {:10s} {:20.3f}'.format(path,period,lumi_each_period[path][period]))
+      fout.write('\n{:20s} {:10s} {:20.3f}'.format(path,'sum',lumi_each_period[path]['sum']))
 
     ## cross-check calculation
     print '\n===> Cross-check analysis for all lumi analysis'
+    lumis = {}
     for path in all_paths:
       with open(fname.format(path=path), 'r') as infile:
         for line in csv.reader(infile):
@@ -114,7 +126,7 @@ if __name__ == "__main__":
             lumis[path][path]=lumi
             to_print = '{:20s}  {:7.3f}'.format(path,lumi)
             print to_print
-            ####outf.write(to_print + '\n')
+            ####fout.write(to_print + '\n')
   
   #########################
   # overlap lumis   
@@ -126,12 +138,13 @@ if __name__ == "__main__":
     for this_path in paths_to_use:
       print '\n =====> Check overlap of ', this_path
       this_df = dfs[this_path]
+      lumi_overlap[this_path] = {}
   
       for check_path in paths_to_use:
+        lumi_overlap[this_path][check_path] = 0.
         if check_path == this_path: continue
         print '        with:' , check_path
         check_df = dfs[check_path]
-        lumi_overlap[this_path][check_path] = 0.
   
         # loop over rows of this_df and look for occurrences in the check_df
         past_times = []
@@ -160,7 +173,7 @@ if __name__ == "__main__":
           past_times.append(this_time)
   
     #print ''
-    #print(lumi_overlap)
+    print '          overlap lumi = ', lumi_overlap[this_path][check_path]
     #print '' 
   
     ## nice format printing
@@ -173,25 +186,31 @@ if __name__ == "__main__":
       for p2 in paths_to_use:
         row.append('{:7.3f}'.format(lumi_overlap[p1][p2]))
       rows.append(row)
-  
+ 
+    print '===> Results' 
     print (' '.join(header))
+    fout.write(' '.join(header))
+    fout.write('\n')
     for row in rows:
       print( ' '.join(row))
+      fout.write(' '.join(row))
 
   ########
   ## consistency check
-
-  or path in paths_to_use:
-    this_df = dfs[path]
-    print '\n', path, 'tot lumi from sum : {:.3f}'.format(this_df['recorded(/fb)'].sum())
+  #
+  #for path in paths_to_use:
+  #  this_df = dfs[path]
+  #  print '\n', path, 'tot lumi from sum : {:.3f}'.format(this_df['recorded(/fb)'].sum())
 
 
 
   #########################
   #### total lumi 
   #########################
-  if (opt.whichana=='lumiTot' or opt.whichana=='lumiTotByPart')
+  if (opt.whichana=='lumiTot' or opt.whichana=='lumiTotByPart'):
     # loop over all output csvs, sum lumi only if the lumiblock/time was not already counted from a previous trigger
+    print '\n===> LumiTot analysis'
+    if opt.whichana=='lumiTotByPart': print '\n     for {}'.format(opt.part)
     
     times_counted = {}
     run_fill_ls_counted = {}
@@ -205,8 +224,8 @@ if __name__ == "__main__":
     lumi_tot_period['D'] = 0
  
     for this_path in paths_to_use:
-      print '\n', this_path
-      outf.write('\n' + this_path + '\n')
+      print '\n====> path={}'.format(this_path)
+      fout.write('\n' + this_path + '\n')
       this_df = dfs[this_path]
       times_counted[this_path] = []
       run_fill_ls_counted[this_path] = []
@@ -259,24 +278,24 @@ if __name__ == "__main__":
               if this_run >= period_runs[period][0] and this_run <= period_runs[period][1]:
                 lumi_tot_period[period] += row['recorded(/fb)']
      
-      print 'lumi so far =' , lumi_tot
-      print 'lumi by period so far:'
+      print '      lumi so far =' , lumi_tot
+      print '      lumi by period so far:'
       for p,l in lumi_tot_period.items():
-        print p,l
+        print '         ',p,l
 
-      outf.write('lumi so far =' + str(lumi_tot) + '\n')
+      fout.write('lumi so far =' + str(lumi_tot) + '\n')
 
     print '\nTotal Lumi for the B-parking dataset = {:.3f}'.format(lumi_tot)
     print '\nLumi by period'
     for p,l in lumi_tot_period.items():
       print '{}: {:.3f}'.format(p,l)
 
-    outf.write('\nRESULTS:')
-    outf.write('\nTotal Lumi for the B-parking dataset = {:.3f}\n'.format(lumi_tot))
-    outf.write('\nLumi by period')
+    fout.write('\nRESULTS:')
+    fout.write('\nTotal Lumi for the B-parking dataset = {:.3f}\n'.format(lumi_tot))
+    fout.write('\nLumi by period')
     for p,l in lumi_tot_period.items():
-      outf.write('\n{}: {:.3f}'.format(p,l))
-  outf.close()
+      fout.write('\n{}: {:.3f}'.format(p,l))
+  fout.close()
 
 
 
