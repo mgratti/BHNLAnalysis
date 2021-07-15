@@ -9,7 +9,6 @@ import pandas as pd
 # 4. 'lumiTotByPart' samee as lumiTot, but done only for specified "part" (more trigger parts were active at the same time, datasets are divided in parts)
 
 
-# TODO: check all implementations
 
 # Note: All luminosities are in units of 1/fb
 
