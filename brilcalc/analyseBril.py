@@ -45,7 +45,7 @@ if __name__ == "__main__":
   if opt.whichana=='lumiTotByPart' and opt.part==None: raise RuntimeError('with analysis lumiTotByPart enabled, you need to specify which part')
 
   if opt.whichana=='lumiTotByPart':
-    fout = open('analysis_output_time_byls_lumiByPart_{part}.txt'.format(part=opt.part), 'w')
+    fout = open('analysis_output_time_byls_{wa}_{part}.txt'.format(wa=opt.whichana,part=opt.part), 'w')
   else:
     fout = open('analysis_output_time_byls_{wa}.txt'.format(wa=opt.whichana), 'w')
 
