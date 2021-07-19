@@ -1,0 +1,39 @@
+
+HLT_Mu7_IP4
+lumi so far =1.38780188
+
+HLT_Mu8_IP6
+lumi so far =2.053467907
+
+HLT_Mu8_IP5
+lumi so far =2.053467907
+
+HLT_Mu8_IP3
+lumi so far =2.185982512
+
+HLT_Mu8p5_IP3p5
+lumi so far =2.239291056
+
+HLT_Mu9_IP6
+lumi so far =6.485234695
+
+HLT_Mu9_IP5
+lumi so far =6.485234695
+
+HLT_Mu9_IP4
+lumi so far =6.485234695
+
+HLT_Mu10p5_IP3p5
+lumi so far =6.485234695
+
+HLT_Mu12_IP6
+lumi so far =8.089871475
+
+RESULTS:
+Total Lumi for the B-parking dataset = 8.090
+
+Lumi by period
+A: 0.774
+C: 1.103
+B: 0.911
+D: 5.302
