@@ -193,6 +193,7 @@ if __name__ == "__main__":
     for row in rows:
       print( ' '.join(row))
       fout.write(' '.join(row))
+      fout.write('\n')
 
   ########
   ## consistency check
