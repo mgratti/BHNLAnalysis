@@ -38,8 +38,8 @@ if __name__ == "__main__":
 
   #### DO NOT EDIT
   dobyls = True          # recommended, do not change
-  doCheckByTime = False if opt.whichana == 'overlaplumi' else True
-  # if false, checks by run, fill and lumi_section,  check by time is faster and it gives same results as false if dobyls==True
+  doCheckByTime = True  # recommended True. False: checks by fill and lumi_section
+  # if false, checks by run, fill and lumi_section,  check by time is faster and it gives **same results as false if dobyls==True**
   ####
 
   if opt.whichana=='lumiTotByPart' and opt.part==None: raise RuntimeError('with analysis lumiTotByPart enabled, you need to specify which part')
@@ -108,8 +108,8 @@ if __name__ == "__main__":
  
     for path in paths_to_use:
       for period in periods:
-        fout.write('\n{:20s} {:10s} {:20.3f}'.format(path,period,lumi_each_period[path][period]))
-      fout.write('\n{:20s} {:10s} {:20.3f}'.format(path,'sum',lumi_each_period[path]['sum']))
+        fout.write('\n{:s} {:s} {:.3f}'.format(path,period,lumi_each_period[path][period]))
+      fout.write('\n{:s} {:s} {:.3f}'.format(path,'sum',lumi_each_period[path]['sum']))
 
     ## cross-check calculation
     print '\n===> Cross-check analysis for all lumi analysis'
@@ -147,29 +147,45 @@ if __name__ == "__main__":
   
         # loop over rows of this_df and look for occurrences in the check_df
         past_times = []
+        past_run_fill_ls = []
         
         counter = 0
-        for index, row in this_df.iterrows():
-          counter +=1
-          #if counter >= 5: break
-          #this_fill = row['run:fill']
-          this_time = row['time']
-          if this_time in past_times: continue # do avoid double counting fills associated with different "parts"
-          #print '  past_times', past_times
-          #match_df = check_df.loc[check_df['run:fill']==this_fill & check_df['time']==this_time]
-          #match_df = check_df.loc[check_df['run:fill']==this_fill]
-          match_df = check_df.loc[check_df['time']==this_time]
-          #print '  match_df' , match_df
-          match_lumi = match_df['recorded(/fb)'].sum() if not match_df.empty else 0.
-          #print '  match_lumi' , match_lumi
-          #if not match_df.empty:
-          #  print '  this_fill' , this_fill
-          #  print '  this_time' , this_time
-          #  print '  match_df' , match_df
-  
-          lumi_overlap[this_path][check_path] +=match_lumi # the sum goes over the fills associated to this_df
-          #print '  tot_match_lumi' , lumi_overlap[this_path][check_path]
-          past_times.append(this_time)
+
+        if doCheckByTime:
+          for index, row in this_df.iterrows():
+            counter +=1
+            #if counter >= 5: break
+            #this_fill = row['run:fill']
+            this_time = row['time']
+            if this_time in past_times: continue # do avoid double counting fills associated with different "parts"
+            #print '  past_times', past_times
+            #match_df = check_df.loc[check_df['run:fill']==this_fill & check_df['time']==this_time]
+            #match_df = check_df.loc[check_df['run:fill']==this_fill]
+            match_df = check_df.loc[check_df['time']==this_time]
+            #print '  match_df' , match_df
+            match_lumi = match_df['recorded(/fb)'].sum() if not match_df.empty else 0.
+            #print '  match_lumi' , match_lumi
+            #if not match_df.empty:
+            #  print '  this_fill' , this_fill
+            #  print '  this_time' , this_time
+            #  print '  match_df' , match_df
+    
+            lumi_overlap[this_path][check_path] +=match_lumi # the sum goes over the fills associated to this_df
+            #print '  tot_match_lumi' , lumi_overlap[this_path][check_path]
+            past_times.append(this_time)
+
+        else:
+          for index, row in this_df.iterrows():
+            counter +=1 
+            this_run_fill = row['run:fill']
+            this_ls = row['ls']
+            #this_fill = row['run:fill']
+            this_run_fill_ls = this_run_fill + ' ' + this_ls
+            if this_run_fill_ls in past_run_fill_ls: continue
+            match_df = check_df.loc[(check_df['run:fill']==this_run_fill) & (check_df['ls']==this_ls)]
+            match_lumi = match_df['recorded(/fb)'].sum() if not match_df.empty else 0.
+            lumi_overlap[this_path][check_path] +=match_lumi # the sum goes over the fills associated to this_df
+            past_run_fill_ls.append(this_run_fill_ls)
   
     #print ''
     print '          overlap lumi = ', lumi_overlap[this_path][check_path]
