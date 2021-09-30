@@ -117,17 +117,6 @@ def makeRatioPlot(hNum, hDen, hDen2="", nameNum="num", nameDen="den", nameDen2="
   else:
     hNum.Draw('histE')
 
-#  hNum.SetMaximum(hNum.GetMaximum()*4)
-  #leg.Draw('same')
-  ymax = max(hNum.GetMaximum(),hDen.GetMaximum())
- 
-  if log==True:
-    hNum.SetMaximum(ymax*30)
-  else:
-    hNum.SetMaximum(ymax*1.3)
-
-
-  #hDenNorm = hDen.Clone()
   if norm:
     hDenNorm = hDen.DrawNormalized('samehistE')
     histo_saver.append(hDenNorm)
@@ -143,9 +132,29 @@ def makeRatioPlot(hNum, hDen, hDen2="", nameNum="num", nameDen="den", nameDen2="
       hDen2.Draw('samehistE')
     leg.AddEntry(hDen2, nameDen2, 'LP')
 
-  leg.AddEntry(hDen, nameDen, 'LP')
   leg.AddEntry(hNum, nameNum, 'LP')
+  leg.AddEntry(hDen, nameDen, 'LP')
   leg.Draw('same')
+  #leg.Draw('same')
+
+  if not norm:
+    ymax = max(hNum.GetMaximum(),hDen.GetMaximum()) 
+  else:
+    ymax = max(hNumNorm.GetMaximum(),hDenNorm.GetMaximum()) 
+ 
+  if log==True:
+    hNum.SetMaximum(ymax*30)
+    if norm:
+      hNumNorm.SetMaximum(ymax*30)
+  else:
+    hNum.SetMinimum(0)
+    hNum.SetMaximum(ymax*1.3)
+    if norm:
+      #hNumNorm.SetMinimum(0)
+      hNumNorm.GetYaxis().SetRangeUser(0,ymax*1.3)
+      #hNumNorm.SetMaximum(ymax*1.3)
+
+  #hDenNorm = hDen.Clone()
 
 
   #print hNumNorm.Integral(), hDenNorm.Integral(), hDenNorm2.Integral()

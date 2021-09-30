@@ -34,7 +34,22 @@ quantities_to_plot_small = [
   ]
 
 
+quantities_to_plot_gen = [
+
+   Quantity(name_nano='', name_flat='gen_b_pdgid', label='gen_b_pdgid', title='pdg id of mother B', nbins=50, bin_min=500, bin_max=550),
+   Quantity(name_nano='', name_flat='gen_hnl_ct',  label='gen_hnl_ct', title='gen HNL ct (cm)', nbins=100, bin_min=0, bin_max=100),
+   Quantity(name_nano='', name_flat='gen_hnl_lxy', label='gen_hnl_lxy', title='gen L_{xy} (cm)', nbins=50, bin_min=0, bin_max=100),
+   Quantity(name_nano='', name_flat='gen_hnl_lxyz',label='gen_hnl_lxyz', title='gen L_{xyz} (cm)', nbins=150, bin_min=0, bin_max=300),
+   Quantity(name_nano='', name_flat='gen_hnl_pt',  label='gen_hnl_pt', title='gen HNL p_{T} (GeV)', nbins=60, bin_min=0, bin_max=30),
+   Quantity(name_nano='', name_flat='gen_hnl_eta', label='gen_hnl_eta', title='gen HNL #eta', nbins=60, bin_min=-6, bin_max=6),
+   Quantity(name_nano='', name_flat='gen_hnl_phi', label='gen_hnl_phi', title='gen HNL #phi', nbins=60, bin_min=-3.5, bin_max=3.5),
+   Quantity(name_nano='', name_flat='gen_hnl_mass',label='gen_hnl_mass', title='gen HNL mass (GeV)', nbins=20, bin_min=0, bin_max=10),
+
+]
+
+
 quantities_to_plot_all = [
+  Quantity(name_nano='PV_npvs', name_flat='pv_npvs', label='pv_npvs', title='N vertices', nbins=100, bin_min=0, bin_max=100),
   Quantity(name_nano='BToMuMuPi_sv_lxy', name_flat='sv_lxy', label='sv_lxy_large', title='displaced vertex lxy [cm]', nbins=50, bin_min=0, bin_max=100),
   Quantity(name_nano='BToMuMuPi_sv_lxy', name_flat='sv_lxy', label='sv_lxy', title='displaced vertex lxy [cm]', nbins=80, bin_min=0, bin_max=30),
   Quantity(name_nano='BToMuMuPi_sv_lxy_sig', name_flat='sv_lxysig', label='sv_lxysig_large', title='significance of the displaced vertex lxy', nbins=80, bin_min=0, bin_max=50000),
@@ -47,8 +62,8 @@ quantities_to_plot_all = [
   Quantity(name_nano='BToMuMuPi_eta', name_flat='b_eta', label='b_eta', title='#mu#mu#pi #eta', nbins=50, bin_min=-2, bin_max=2),
   Quantity(name_nano='BToMuMuPi_phi', name_flat='b_phi', label='b_phi', title='#mu#mu#pi #phi', nbins=50, bin_min=-3.2, bin_max=3.2),
 
-  #Quantity(name_nano='BToMuMuPi_hnl_mass', name_flat='hnl_mass', label='hnl_mass_large', title='#mu#pi invariant mass [GeV]', nbins=80, bin_min=0.55, bin_max=6.5),
-  Quantity(name_nano='BToMuMuPi_hnl_mass', name_flat='hnl_mass', label='hnl_mass', title='#mu#pi invariant mass [GeV]', nbins=200, bin_min=2, bin_max=4),
+  Quantity(name_nano='BToMuMuPi_hnl_mass', name_flat='hnl_mass', label='hnl_mass_large', title='#mu#pi invariant mass [GeV]', nbins=65, bin_min=0., bin_max=6.5),
+  Quantity(name_nano='BToMuMuPi_hnl_mass', name_flat='hnl_mass', label='hnl_mass', title='#mu#pi invariant mass [GeV]', nbins=150, bin_min=0.5, bin_max=2.),
   Quantity(name_nano='BToMuMuPi_hnl_pt', name_flat='hnl_pt', label='hnl_pt_large', title='#mu#pi p_{T} [GeV]', nbins=60, bin_min=0, bin_max=250),
   Quantity(name_nano='BToMuMuPi_hnl_pt', name_flat='hnl_pt', label='hnl_pt', title='#mu#pi p_{T} [GeV]', nbins=60, bin_min=0, bin_max=80),
   Quantity(name_nano='BToMuMuPi_hnl_eta', name_flat='hnl_eta', label='hnl_eta', title='#mu#pi #eta', nbins=50, bin_min=-2, bin_max=2),
