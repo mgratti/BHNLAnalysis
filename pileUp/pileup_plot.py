@@ -64,7 +64,7 @@ pu_bph_data_gaus.FillRandom("mygaus2", 100000000) # 100M   (with 500M or more, t
 # Plot them all normalised together
 c = TCanvas()
 
-pu_bph_data.GetXaxis().SetTitle('<#mu>')
+pu_bph_data.GetXaxis().SetTitle('Pile-up')
 pu_bph_data.GetYaxis().SetTitle('a.u.')
 pu_bph_data.GetXaxis().SetRangeUser(0,100)
 pu_bph_mc.SetLineColor(kRed)

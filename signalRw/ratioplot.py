@@ -47,6 +47,11 @@ def makeRatioSettings(ratioMC):
 def makeRatioPlot(hNum, hDen, hDen2="", nameNum="num", nameDen="den", nameDen2="", xtitle="pt",ytitle="Entries", ratiotitle="Ratio", norm=False, log=True, plotName="ratio", outDir='out',ratioyrange=(0,2)):
   TH1.SetDefaultSumw2()
 
+  hNum = getOverflowedHisto(hNum)
+  hDen = getOverflowedHisto(hDen)
+  if nameDen2 != "":
+    hDen2 = getOverflowedHisto(hDen2)
+
   # prepare settings of histos
   hNum.SetLineColor(kBlack)
   hNum.SetLineWidth(2)

@@ -3,7 +3,7 @@ import os
 import sys
 import ratioplot as RP
 sys.path.append('/work/mratti/plotting/myplotting')
-from spares import *
+from spares import getOverflowedHisto
 # Enable multi-threading
 #ROOT.ROOT.EnableImplicitMT()
 from quantity import Quantity,quantities_to_plot_all
@@ -13,13 +13,13 @@ from quantity import Quantity,quantities_to_plot_all
 if __name__ == "__main__":
 
   #### ROOT Options
-  gROOT.SetBatch(True)
+  ROOT.gROOT.SetBatch(True)
   ROOT.TH1.SetDefaultSumw2()
   ROOT.TH1.StatOverflows(ROOT.kTRUE) # consider overflows for mean and rms calculation
-  gROOT.ProcessLine('.L /work/mratti/CMS_style/tdrstyle.C')
-  gROOT.ProcessLine('setTDRStyle()')
-  gStyle.SetTitleXOffset(1.1);
-  gStyle.SetTitleYOffset(1.45);
+  ROOT.gROOT.ProcessLine('.L /work/mratti/CMS_style/tdrstyle.C')
+  ROOT.gROOT.ProcessLine('setTDRStyle()')
+  ROOT.gStyle.SetTitleXOffset(1.1);
+  ROOT.gStyle.SetTitleYOffset(1.45);
 
 
   path_low  = '/pnfs/psi.ch/cms/trivcat/store/user/mratti/BHNLsGen/V20_emu/mass3.0_ctau184.0/nanoFiles/merged/flat_bparknano_n1_f1.root'
@@ -180,4 +180,4 @@ if __name__ == "__main__":
                       outDir=outDir,ratioyrange=(0.4,1.6) )
 
 
-    break
+    #break
