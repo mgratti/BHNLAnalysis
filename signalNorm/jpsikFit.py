@@ -57,15 +57,20 @@ def drawPlot(frame,frame2,chisq,prob,sigmaBpm,lumi,label=''):
   #frame.GetYaxis().SetTitleOffset(1.6)
   c.cd(1)
   ROOT.gPad.SetLeftMargin(0.15)
+  ROOT.gPad.SetBottomMargin(0.10)
   ROOT.gPad.SetPad(0.01,0.2,0.99,0.99)
-  frame.Draw()
+  frame.GetXaxis().SetTitleSize(0.04);
   frame.GetXaxis().SetTitle("m_{K J/#psi} (GeV)")
+  frame.GetYaxis().SetTitleSize(0.04);
+  frame.GetYaxis().SetTitle("Entries")
+  frame.GetYaxis().SetTitleOffset(1.1)
+  frame.Draw()
 
   labelchi2 = '#chi^{{2}}/n_{{dof}} = {:.1f}'.format(chisq)
   labelprob = '  p-value = {:.2f}'.format(prob)
   labelsigma = '#sigma(B^{{\pm}}) = {:.1f} x 10^{{9}} fb'.format(sigmaBpm/1E9)
-  labellumi = 'L = {.3f} fb^{{-1}}'.format(lumi)
-  defaultLabels([labelchi2+labelprob,labelsigma,labellumi], 0.6, 0.3) #spacing = 0.04, size = 0.027, dx = 0.12):
+  labellumi = 'L = {:.3f} fb^{{-1}}'.format(lumi)
+  defaultLabels([labelchi2+labelprob,labelsigma,labellumi], 0.6, 0.34) #spacing = 0.04, size = 0.027, dx = 0.12):
 
   c.cd(2)
   frame2.Draw()
@@ -76,7 +81,7 @@ def drawPlot(frame,frame2,chisq,prob,sigmaBpm,lumi,label=''):
   frame2.GetYaxis().SetLabelSize(0.17)
   frame2.GetYaxis().SetTitleSize(0.17)
   frame2.GetYaxis().SetTitleOffset(0.24)
-  frame2.GetYaxis().SetRangeUser(-5,5)        
+  frame2.GetYaxis().SetRangeUser(-3,3)        
   frame2.GetYaxis().SetTitle("Pulls") 
   frame2.GetXaxis().SetTitle("")      
   frame2.GetXaxis().SetLabelOffset(5)          
@@ -102,15 +107,28 @@ if __name__ == "__main__":
   #############
   # Data import
   #############
-  
-  # these are the files that were shared with Ludovico
-  files_data_periodA = glob('/pnfs/psi.ch/cms/trivcat/store/user/anlyon/BHNLsGen/data/F1/ParkingBPH1_Run2018A/merged/flat_bparknano_forRenormalisationStudy.root')
-  file_mc =  '/pnfs/psi.ch/cms/trivcat/store/user/anlyon/BHNLsGen/V15_control/mass999_ctau999/nanoFiles/merged/flat_bparknano_forRenormalisationStudy.root'
+ 
 
-  # version of October 
-  #file_mc = '/pnfs/psi.ch/cms/trivcat/store/user/mratti/BHNLsGen/V15_control/mass999_ctau999/nanoFiles/merged/flat_bparknano_Oct20_Oct20.root'
-  #files_data_periodA = ['/pnfs/psi.ch/cms/trivcat/store/user/mratti/BHNLsGen/data/Control_Oct20/ParkingBPH1_Run2018A/merged/flat_bparknano_Oct20_TEST.root']
-  # for data 1.61% of the jobs failed
+  doNew = True
+  doFiducial = True
+
+  if doFiducial:
+    mult = 1./25. # scale the starting points for nsig and nbkg, when applying the fiducial cuts
+  else: 
+    mult = 1.
+
+
+  if doNew:
+    # version of October 
+    file_mc = '/pnfs/psi.ch/cms/trivcat/store/user/mratti/BHNLsGen/V15_control/mass999_ctau999/nanoFiles/merged/flat_bparknano_Oct20_Oct20.root'
+    files_data_periodA = ['/pnfs/psi.ch/cms/trivcat/store/user/mratti/BHNLsGen/data/Control_Oct20/ParkingBPH1_Run2018A/merged/flat_bparknano_Oct20_TEST.root']
+    # for data 1.61% of the jobs failed
+ 
+  else:
+    # these are the files that were shared with Ludovico
+    file_mc =  '/pnfs/psi.ch/cms/trivcat/store/user/anlyon/BHNLsGen/V15_control/mass999_ctau999/nanoFiles/merged/flat_bparknano_forRenormalisationStudy.root'
+    files_data_periodA = glob('/pnfs/psi.ch/cms/trivcat/store/user/anlyon/BHNLsGen/data/F1/ParkingBPH1_Run2018A/merged/flat_bparknano_forRenormalisationStudy.root')
+
   
   # tree
   treename = 'control_tree'
@@ -138,6 +156,13 @@ if __name__ == "__main__":
   sv_prob = ROOT.RooRealVar('sv_prob', 'sv_prob', 0., 1.)
   hlt_mu9_ip6 = ROOT.RooRealVar('hlt_mu9_ip6', 'hlt_mu9_ip6', 0, 1)
   # nice to haves: impact parameters (?), significance of the displacement
+  if doNew:
+    b_y = ROOT.RooRealVar('b_y', 'b_y', -10., 10.)
+    #matched_b_y = ROOT.RooRealVar('matched_b_y', 'matched_b_y', -10., 10.) # do not uncomment, still need to understand why, FIXME
+    #matched_b_pt = ROOT.RooRealVar('matched_b_pt', 'matched_b_pt', 0.,13000.)
+    #sv_lxysig = ROOT.RooRealVar('sv_lxysig', 'sv_lxysig', 0., 100.)
+    #dimu_sv_prob = ROOT.RooRealVar('dimu_sv_prob', 'dimu_sv_prob', 0., 1.)
+    
   
   # mc
   ismatched = ROOT.RooRealVar('ismatched', 'ismatched', 0,1)
@@ -158,6 +183,10 @@ if __name__ == "__main__":
   mvars.add(sv_lxy)
   mvars.add(sv_prob)
   mvars.add(hlt_mu9_ip6)
+  if doNew:
+    mvars.add(b_y)
+    #mvars.add(matched_b_y) # do not uncomment!
+    #mvars.add(matched_b_y)
   
   mvars_mc = mvars
   #mvars_mc.add(ismatched)
@@ -208,23 +237,37 @@ if __name__ == "__main__":
   ]
 
   selBase = ' && '.join(my_selections)
-  print selBase
+  ####print selBase
 
-  
-  ## baseline for MC
-  selBase_mc = selBase + '&& ismatched==1'
-  
+  ## fiducial cuts
+  selFiducial = 'b_pt > 10 && b_pt < 17 && abs(b_y) < 1.45'  
+
+  if doFiducial and doNew:
+    sel = selBase +  ' && ' + selFiducial 
+  else:
+    sel = selBase
+
+  print sel
+ 
   # define the datasets
-  Rdata = ROOT.RooDataSet('Rdata', 'data', tree_data, mvars, selBase) # no weight
-  Rmc = ROOT.RooDataSet('Rmc', 'MC', tree_mc, mvars_mc, selBase) # selBase_mc
+  Rdata = ROOT.RooDataSet('Rdata', 'data', tree_data, mvars, sel) # no weight
+  Rmc = ROOT.RooDataSet('Rmc', 'MC', tree_mc, mvars_mc, sel) ## TODO: add weights
+
+  ## test
+  frametest = mass.frame(RF.Title(""))
+  Rdata.plotOn(frametest, RF.MarkerSize(0.5), RF.XErrorSize(0), RF.Name('data'))
+  ctest = TCanvas()
+  frametest.Draw()
+  ctest.SaveAs('test.pdf')
+
   
   #############
   # Fit models
   #############
   
   ## bkg
-  nbkg_comb = ROOT.RooRealVar('nbkg_comb','number of bkg events (combinatorial)',            1000,0,1.0E07) 
-  nbkg_prec = ROOT.RooRealVar('nbkg_prec','number of bkg events (partially reconstructed)', 40000,0,1.0E07) 
+  nbkg_comb = ROOT.RooRealVar('nbkg_comb','number of bkg events (combinatorial)',            1000*mult,0,1.0E07) 
+  nbkg_prec = ROOT.RooRealVar('nbkg_prec','number of bkg events (partially reconstructed)', 40000*mult,0,1.0E07) 
   
   ### 1) bkg from ~5 GeV (JPsi + hadrons), misreconstruction
   erf_xshift = ROOT.RooRealVar('erf_xshift', 'xshift', 6., -1000., 1000.) 
@@ -260,7 +303,7 @@ if __name__ == "__main__":
   nbkg_peak = ROOT.RooRealVar('nbkg_peak','number of bkg events (J/#psi #pi)', 200,0,1.0E07) 
   
   ## signal
-  nsig  = ROOT.RooRealVar('nsig','number of signal events', 20000,0,1E07)
+  nsig  = ROOT.RooRealVar('nsig','number of signal events', 20000*mult,0,1E07)
   
   ### gauss
   gauss_mean  = ROOT.RooRealVar('gauss_mean', 'gauss_mean', 5.28, 5., 6.)
@@ -389,15 +432,17 @@ if __name__ == "__main__":
 
   chisq,prob=getChiSquare(fitmodel,Rdata)
 
+
+
   ###########
   # Calculate normalisation factor
   ##########
   # get the parameter and the parameters error 
-  #results.
   nSig = nsig.getVal()
-  #filterEff = 2.40e-02     
-  #ngen = 331550.0   
-  nGenTot = 13787971.0 # before filter, number of Bbar events
+  if doFiducial:
+    nGenTot = 13787971.0 # FIXME: after filter + B-fiducial cuts
+  else:
+    nGenTot = 13787971.0 # before filter, number of Bbar events
   BR_JpsiK =    10.20E-04 #pm 0.19  our fit  #Gamma274/Gamma, https://pdglive.lbl.gov/BranchingRatio.action?desig=3&parCode=S041&home=MXXX045, 2021 
   BR_JpsiMuMu = 5.961E-02 #pm 0.033          #Gamma7/Gamma, https://pdglive.lbl.gov/BranchingRatio.action?desig=2&parCode=M070&home=MXXX025, 2021
   nSel = Rmc.sumEntries()  # get the entries in the tree 
