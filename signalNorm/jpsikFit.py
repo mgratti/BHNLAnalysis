@@ -20,18 +20,31 @@ def getChiSquare(fitmodel,Rdata):
  
   flparams = fitmodel.getParameters(Rdata).selectByAttrib("Constant",ROOT.kFALSE) 
   nflparams = flparams.getSize()
-  print ('***********  nflparams = {} *******'.format(nflparams))
-
   my_frame = mass.frame()
   Rdata.plotOn(my_frame) 
+  nmeas = my_frame.GetNbinsX()
+  ndof = - nflparams + nmeas  
+
   fitmodel.plotOn(my_frame) 
-  chi2 = my_frame.chiSquare(nflparams)
-  #chi2 = my_frame.chiSquare(1)
+  my_chi2 = my_frame.chiSquare(nflparams)
 
-  print ('************ chi2 = {} **********'.format(chi2))
-  return chi2
+  from scipy.stats import chi2
+  prob = 1-chi2.cdf(my_chi2*ndof, ndof)
+  
 
-def drawPlot(frame,frame2,chi2,label=''):
+  print ('\n****************************\n')
+  print ('Fit quality information')
+  print ('nflparams = {}'.format(nflparams))
+  print ('nmeas     = {}'.format(nmeas))
+  print ('ndof      = {}'.format(ndof))
+  print ('chi2      = {:.1f}'.format(my_chi2))
+  print ('prob      = {:.4f}'.format(prob))
+  print ('\n****************************\n')
+
+
+  return my_chi2,prob
+
+def drawPlot(frame,frame2,chisq,prob,sigmaBpm,lumi,label=''):
 
   hpull = frame.pullHist()
   hpull.SetMarkerSize(0.7)
@@ -46,10 +59,13 @@ def drawPlot(frame,frame2,chi2,label=''):
   ROOT.gPad.SetLeftMargin(0.15)
   ROOT.gPad.SetPad(0.01,0.2,0.99,0.99)
   frame.Draw()
+  frame.GetXaxis().SetTitle("m_{K J/#psi} (GeV)")
 
-  labelchi2 = '#chi^{{2}} = {:.1f}'.format(chi2)
-  print (labelchi2)
-  defaultLabels([labelchi2], 0.7, 0.25) #spacing = 0.04, size = 0.027, dx = 0.12):
+  labelchi2 = '#chi^{{2}}/n_{{dof}} = {:.1f}'.format(chisq)
+  labelprob = '  p-value = {:.2f}'.format(prob)
+  labelsigma = '#sigma(B^{{\pm}}) = {:.1f} x 10^{{9}} fb'.format(sigmaBpm/1E9)
+  labellumi = 'L = {.3f} fb^{{-1}}'.format(lumi)
+  defaultLabels([labelchi2+labelprob,labelsigma,labellumi], 0.6, 0.3) #spacing = 0.04, size = 0.027, dx = 0.12):
 
   c.cd(2)
   frame2.Draw()
@@ -87,9 +103,14 @@ if __name__ == "__main__":
   # Data import
   #############
   
-  #files_data_periodA = glob('/pnfs/psi.ch/cms/trivcat/store/user/anlyon/BHNLsGen/data/F1/ParkingBPH*_Run2018A/merged/flat_bparknano_forRenormalisationStudy.root')
+  # these are the files that were shared with Ludovico
   files_data_periodA = glob('/pnfs/psi.ch/cms/trivcat/store/user/anlyon/BHNLsGen/data/F1/ParkingBPH1_Run2018A/merged/flat_bparknano_forRenormalisationStudy.root')
   file_mc =  '/pnfs/psi.ch/cms/trivcat/store/user/anlyon/BHNLsGen/V15_control/mass999_ctau999/nanoFiles/merged/flat_bparknano_forRenormalisationStudy.root'
+
+  # version of October 
+  #file_mc = '/pnfs/psi.ch/cms/trivcat/store/user/mratti/BHNLsGen/V15_control/mass999_ctau999/nanoFiles/merged/flat_bparknano_Oct20_Oct20.root'
+  #files_data_periodA = ['/pnfs/psi.ch/cms/trivcat/store/user/mratti/BHNLsGen/data/Control_Oct20/ParkingBPH1_Run2018A/merged/flat_bparknano_Oct20_TEST.root']
+  # for data 1.61% of the jobs failed
   
   # tree
   treename = 'control_tree'
@@ -97,7 +118,7 @@ if __name__ == "__main__":
   # define the chains from where to import the data
   tree_data = ROOT.TChain(treename)
   for fname in files_data_periodA:
-     tree_data.AddFile(fname)
+    tree_data.AddFile(fname)
   tree_mc = ROOT.TChain(treename)
   tree_mc.AddFile(file_mc)
   
@@ -150,15 +171,52 @@ if __name__ == "__main__":
   sel = '(1)'
   #selBase = 'b_pt>30 && abs(b_eta)<1.45 && b_cos2d>0.995 && dimu_mass > (3.097-0.20) && dimu_mass < (3.097+0.20) && b_mass>5 && sv_lxy>0.1 && k_pt>1.5 && abs(k_eta)<2.0 && abs(l2_eta)<2.0'
   #selBase = 'b_cos2d>0.995 && dimu_mass > (3.097-0.20) && dimu_mass < (3.097+0.20) && b_mass>5 && sv_lxy>0.1 && k_pt>1.5 && abs(k_eta)<2.0 && abs(l2_eta)<2.0'
-  #selBase = 'b_cos2d>0.995 && dimu_mass > (3.097-0.20) && dimu_mass < (3.097+0.20) && b_mass>5 && sv_lxy>0.1 && k_pt>1.5 && abs(k_eta)<2.0 && abs(l2_eta)<2.0 && l1_pt > 4. && l2_pt > 4. && hlt_mu9_ip6==1'
-  selBase = 'b_cos2d>0.995 && dimu_mass > (3.097-0.20) && dimu_mass < (3.097+0.20) && b_mass>5 && sv_lxy>0.1 && k_pt>1.5 && abs(k_eta)<2.0 && abs(l2_eta)<2.0 && l1_pt > 4. && l2_pt > 4.'
-  #selBase = 'b_cos2d>0.995 && dimu_mass > (3.097-0.05) && dimu_mass < (3.097+0.05) && b_mass>5 && sv_lxy>0.1 && k_pt>1.5 && abs(k_eta)<2.0 && abs(l2_eta)<2.0'
+
+  ## baseline (dimu window 0.20 GeV: can go tighter?, like 0.05?)
+  #selBase = 'b_cos2d>0.995 && dimu_mass > (3.097-0.20) && dimu_mass < (3.097+0.20) && b_mass>5 && sv_lxy>0.1 && k_pt>1.5 && abs(k_eta)<2.0 && abs(l2_eta)<2.0 && l1_pt > 4. && l2_pt > 4.'
+  
+  ## baseline + trigger cut (only for cross-checking purposes)
+  my_selections = [
+    'b_cos2d > 0.995',
+    'dimu_mass > (3.097-0.05)',
+    'dimu_mass < (3.097+0.05)',
+    'b_mass > 5 ',
+    'sv_lxy > 0.1 ',
+    'sv_prob > 0.',
+    'k_pt > 1.5 ',
+    'abs(k_eta) < 2. ',
+    'l1_pt > 9. ',
+    'l2_pt > 4. ',
+    'abs(l2_eta) < 2 ',
+    'hlt_mu9_ip6==1'
+  ]
+
+  ## ludovico's
+  ludo_selections = [
+    'b_cos2d > 0.9995 ',
+    'dimu_mass < (3.097+0.15) ',
+    'dimu_mass > (3.097-0.15) ',
+    'b_mass > 5 ',
+    'sv_lxy > 0.035 ',
+    'sv_prob > 0.08 ',
+    'k_pt > 1.0 ',
+    'abs(k_eta) < 1.6 ',
+    #'l1_pt > 9. ',
+    'l2_pt > 2. ',
+    'abs(l2_eta) < 1.8 ',
+    'hlt_mu9_ip6==1',
+  ]
+
+  selBase = ' && '.join(my_selections)
+  print selBase
+
+  
+  ## baseline for MC
   selBase_mc = selBase + '&& ismatched==1'
   
   # define the datasets
   Rdata = ROOT.RooDataSet('Rdata', 'data', tree_data, mvars, selBase) # no weight
-  #Rmc = ROOT.RooDataSet('Rmc', 'MC', tree_mc, mvars_mc, selBase_mc)
-  Rmc = ROOT.RooDataSet('Rmc', 'MC', tree_mc, mvars_mc, selBase)
+  Rmc = ROOT.RooDataSet('Rmc', 'MC', tree_mc, mvars_mc, selBase) # selBase_mc
   
   #############
   # Fit models
@@ -176,6 +234,7 @@ if __name__ == "__main__":
   
   argus_shape = ROOT.RooRealVar('argus_shape','argus shape parameter',-3,-10.,-2.) # -5 ok
   argus_fallm = ROOT.RooRealVar('argus_fallm','argus falling mass',5.16, 5.16,5.16,)
+  #argus_fallm = ROOT.RooRealVar('argus_fallm','argus falling mass',5.279, 5.279,5.279)
   argus = ROOT.RooArgusBG("argus","argus",mass,argus_fallm,argus_shape)
 
   exp1_a = ROOT.RooRealVar('exp1_a', 'exp1_a', -1., -10.,0.)
@@ -328,8 +387,7 @@ if __name__ == "__main__":
   frame.getAttText().SetTextSize(0.02) #
   frame2 = mass.frame(RF.Title(" "))
 
-  chi2=getChiSquare(fitmodel,Rdata)
-  drawPlot(frame,frame2,chi2)
+  chisq,prob=getChiSquare(fitmodel,Rdata)
 
   ###########
   # Calculate normalisation factor
@@ -350,4 +408,7 @@ if __name__ == "__main__":
   print ('Extracted value of sigma (fb) = {:.2e}'.format(sigmaBpm))
 
 
-
+  #######
+  # Draw
+  #######
+  drawPlot(frame,frame2,chisq,prob,sigmaBpm,lumi)
