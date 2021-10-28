@@ -15,6 +15,69 @@ whichSignalModel = 'voigt' # gauss, voigt, dscb
 whichCombBkgModel = 'exp' # poly1, exp
 whichPRecBkgModel = 'argus' # argus erf exp
 doAddJpsiPi = False
+doNew = True
+doHLTWeights = True
+doFiducial = False
+
+
+def getTotalEffFiducial(nSelMC):
+
+  b_fiducial_cuts = 'b_pt > 10 && b_pt < 17 && abs(b_y) < 1.45'
+  gen_filter_cuts = 'l1_pt > 6.8 && abs(l1_eta) < 1.55'
+  
+  ### Epsilon 2 
+  #### from "unfiltered" sample (i.e. no muon filter, but B filter with fiducial)
+  path = '/work/mratti/GEN_HNL/CMSSW_10_2_15/src/HNLsGen/genLevelAnalysis/outputfiles/'
+  pl = 'V15_control_BfilterNoMufilter/'
+  fname = 'mass999_ctau999_miniGenTree.root'
+  f = ROOT.TFile.Open(path+pl+fname,'read')
+  t = f.Get('tree')
+  
+  num_cuts = b_fiducial_cuts + ' && ' + gen_filter_cuts
+  den_cuts = b_fiducial_cuts
+  
+  hnum = ROOT.TH1F('hnum', 'hnum', 1, 0., 20.)
+  hden = ROOT.TH1F('hden', 'hden', 1, 0., 20.)
+  
+  t.Draw('b_pt>>hnum', num_cuts, 'goff')
+  t.Draw('b_pt>>hden', den_cuts, 'goff')
+  
+  
+  peff = ROOT.TEfficiency(hnum,hden)
+  eff2,eff2_errup,eff2_errdn = peff.GetEfficiency(1), peff.GetEfficiencyErrorUp(1), peff.GetEfficiencyErrorLow(1)
+  
+  print('===> Resulting efficiency Epsilon2')
+  print('eff2 = {:.4f} + {:.4f} - {:.4f}'.format(eff2,eff2_errup,eff2_errdn))
+  
+  
+  ### Epsilon 1, 
+  #### denominator from filtered sample (i.e. with muon filter)
+  #### numerator from filtered sample, but at RECO level
+  pl = 'V15_control/'
+  fname = 'mass999_ctau999_miniGenTree.root'
+  f = ROOT.TFile.Open(path+pl+fname,'read')
+  t = f.Get('tree')
+   
+  den_cuts = b_fiducial_cuts + ' && ' + gen_filter_cuts
+  
+  hnum = ROOT.TH1F('hnum', 'hnum', 1, 0., 20.)
+  hden = ROOT.TH1F('hden', 'hden', 1, 0., 20.)
+  
+  ##treco.Draw('b_pt>>hnum', num_cuts, 'godff')
+  t.Draw('b_pt>>hden', den_cuts, 'goff')
+  hnum.SetBinContent(1,nSelMC)
+  hnum.SetBinError(1,ROOT.TMath.Sqrt(nSelMC))  
+
+  peff = ROOT.TEfficiency(hnum,hden)
+  eff1,eff1_errup,eff1_errdn = peff.GetEfficiency(1), peff.GetEfficiencyErrorUp(1), peff.GetEfficiencyErrorLow(1)
+  
+  print('===> Resulting efficiency Epsilon1')
+  print('eff1 = {:.4f} + {:.4f} - {:.4f}'.format(eff1,eff1_errup,eff1_errdn))
+
+
+  return eff1*eff2
+
+
 
 def getChiSquare(fitmodel,Rdata):
  
@@ -107,10 +170,6 @@ if __name__ == "__main__":
   #############
   # Data import
   #############
- 
-
-  doNew = True
-  doFiducial = True
 
   if doFiducial:
     mult = 1./25. # scale the starting points for nsig and nbkg, when applying the fiducial cuts
@@ -158,6 +217,7 @@ if __name__ == "__main__":
   # nice to haves: impact parameters (?), significance of the displacement
   if doNew:
     b_y = ROOT.RooRealVar('b_y', 'b_y', -10., 10.)
+    weight_hlt = ROOT.RooRealVar('weight_hlt', 'weight_hlt', 0., 1.)
     #matched_b_y = ROOT.RooRealVar('matched_b_y', 'matched_b_y', -10., 10.) # do not uncomment, still need to understand why, FIXME
     #matched_b_pt = ROOT.RooRealVar('matched_b_pt', 'matched_b_pt', 0.,13000.)
     #sv_lxysig = ROOT.RooRealVar('sv_lxysig', 'sv_lxysig', 0., 100.)
@@ -189,6 +249,8 @@ if __name__ == "__main__":
     #mvars.add(matched_b_y)
   
   mvars_mc = mvars
+  if doNew and doHLTWeights:
+    mvars_mc.add(weight_hlt)
   #mvars_mc.add(ismatched)
   
   # nice to haves: impact parameters (?), significance of the displacement
@@ -217,7 +279,7 @@ if __name__ == "__main__":
     'l1_pt > 9. ',
     'l2_pt > 4. ',
     'abs(l2_eta) < 2 ',
-    'hlt_mu9_ip6==1'
+    #'hlt_mu9_ip6==1'
   ]
 
   ## ludovico's
@@ -233,7 +295,7 @@ if __name__ == "__main__":
     #'l1_pt > 9. ',
     'l2_pt > 2. ',
     'abs(l2_eta) < 1.8 ',
-    'hlt_mu9_ip6==1',
+    #'hlt_mu9_ip6==1',
   ]
 
   selBase = ' && '.join(my_selections)
@@ -252,6 +314,14 @@ if __name__ == "__main__":
   # define the datasets
   Rdata = ROOT.RooDataSet('Rdata', 'data', tree_data, mvars, sel) # no weight
   Rmc = ROOT.RooDataSet('Rmc', 'MC', tree_mc, mvars_mc, sel) ## TODO: add weights
+
+  print('before weighting')
+  Rmc.Print()
+  if doNew and doHLTWeights:
+    Rmc = ROOT.RooDataSet('Rmc', 'MC', tree_mc, mvars_mc, sel, weight_hlt.GetName())
+
+  print('after weighting')
+  Rmc.Print()
 
   ## test
   frametest = mass.frame(RF.Title(""))
@@ -276,8 +346,8 @@ if __name__ == "__main__":
   # careful, this is not positive definite...
   
   argus_shape = ROOT.RooRealVar('argus_shape','argus shape parameter',-3,-10.,-2.) # -5 ok
-  argus_fallm = ROOT.RooRealVar('argus_fallm','argus falling mass',5.16, 5.16,5.16,)
-  #argus_fallm = ROOT.RooRealVar('argus_fallm','argus falling mass',5.279, 5.279,5.279)
+  #argus_fallm = ROOT.RooRealVar('argus_fallm','argus falling mass',5.16, 5.16,5.16,)
+  argus_fallm = ROOT.RooRealVar('argus_fallm','argus falling mass',5.279, 5.279,5.279)
   argus = ROOT.RooArgusBG("argus","argus",mass,argus_fallm,argus_shape)
 
   exp1_a = ROOT.RooRealVar('exp1_a', 'exp1_a', -1., -10.,0.)
@@ -440,16 +510,21 @@ if __name__ == "__main__":
   # get the parameter and the parameters error 
   nSig = nsig.getVal()
   if doFiducial:
-    nGenTot = 13787971.0 # FIXME: after filter + B-fiducial cuts
+    ###nGenTot = 13787971.0 # FIXME: after filter + B-fiducial cuts
+    nSelMC = Rmc.sumEntries()
+    totalEffMC = getTotalEffFiducial(nSelMC)
+
   else:
     nGenTot = 13787971.0 # before filter, number of Bbar events
+    nSelMC = Rmc.sumEntries()  # get the entries in the tree 
+    totalEffMC = nSelMC / nGenTot
+    
   BR_JpsiK =    10.20E-04 #pm 0.19  our fit  #Gamma274/Gamma, https://pdglive.lbl.gov/BranchingRatio.action?desig=3&parCode=S041&home=MXXX045, 2021 
   BR_JpsiMuMu = 5.961E-02 #pm 0.033          #Gamma7/Gamma, https://pdglive.lbl.gov/BranchingRatio.action?desig=2&parCode=M070&home=MXXX025, 2021
-  nSel = Rmc.sumEntries()  # get the entries in the tree 
-  print ('nSel={}'.format(nSel))
+  ###print ('nSel={}'.format(nSel))
   lumi = 0.774 # /fb 
 
-  sigmaBpm = nSig / (BR_JpsiK*BR_JpsiMuMu) * nGenTot / float(nSel) / lumi
+  sigmaBpm = nSig / (BR_JpsiK*BR_JpsiMuMu) / totalEffMC / lumi
   print ('Extracted value of sigma (fb) = {:.2e}'.format(sigmaBpm))
 
 
