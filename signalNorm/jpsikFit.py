@@ -18,7 +18,7 @@ doAddJpsiPi = False
 doNew = True
 doHLTWeights = True
 doFiducial = False
-
+deltaDiMu = 0.05
 
 def getTotalEffFiducial(nSelMC):
 
@@ -131,9 +131,9 @@ def drawPlot(frame,frame2,chisq,prob,sigmaBpm,lumi,label=''):
 
   labelchi2 = '#chi^{{2}}/n_{{dof}} = {:.1f}'.format(chisq)
   labelprob = '  p-value = {:.2f}'.format(prob)
-  labelsigma = '#sigma(B^{{\pm}}) = {:.1f} x 10^{{9}} fb'.format(sigmaBpm/1E9)
+  labelsigma = '#sigma(B^{{\pm}}) = {:.1f} x 10^{{9}} fb ({})'.format(sigmaBpm/1E9, 'inclusive' if not doFiducial else 'fiducial')
   labellumi = 'L = {:.3f} fb^{{-1}}'.format(lumi)
-  defaultLabels([labelchi2+labelprob,labelsigma,labellumi], 0.6, 0.34) #spacing = 0.04, size = 0.027, dx = 0.12):
+  defaultLabels([labelchi2+labelprob,labelsigma,labellumi], 0.55, 0.33) #spacing = 0.04, size = 0.027, dx = 0.12):
 
   c.cd(2)
   frame2.Draw()
@@ -214,6 +214,10 @@ if __name__ == "__main__":
   sv_lxy = ROOT.RooRealVar('sv_lxy', 'sv_lxy', 0, 200, 'cm')
   sv_prob = ROOT.RooRealVar('sv_prob', 'sv_prob', 0., 1.)
   hlt_mu9_ip6 = ROOT.RooRealVar('hlt_mu9_ip6', 'hlt_mu9_ip6', 0, 1)
+  l1_softid = ROOT.RooRealVar('l1_softid', 'l1_softid', 0,1)
+  l2_softid = ROOT.RooRealVar('l2_softid', 'l2_softid', 0,1)
+  sv_lxysig = ROOT.RooRealVar('sv_lxysig', 'sv_lxysig', 0,1E09)
+  #l1_softid = ROOT.ROOT.RooRealVar('', '', 0,1)
   # nice to haves: impact parameters (?), significance of the displacement
   if doNew:
     b_y = ROOT.RooRealVar('b_y', 'b_y', -10., 10.)
@@ -245,6 +249,9 @@ if __name__ == "__main__":
   mvars.add(hlt_mu9_ip6)
   if doNew:
     mvars.add(b_y)
+    mvars.add(l1_softid)
+    mvars.add(l2_softid)
+    mvars.add(sv_lxysig)
     #mvars.add(matched_b_y) # do not uncomment!
     #mvars.add(matched_b_y)
   
@@ -267,19 +274,38 @@ if __name__ == "__main__":
   #selBase = 'b_cos2d>0.995 && dimu_mass > (3.097-0.20) && dimu_mass < (3.097+0.20) && b_mass>5 && sv_lxy>0.1 && k_pt>1.5 && abs(k_eta)<2.0 && abs(l2_eta)<2.0 && l1_pt > 4. && l2_pt > 4.'
   
   ## baseline + trigger cut (only for cross-checking purposes)
-  my_selections = [
+  my_old_selections = [
     'b_cos2d > 0.995',
-    'dimu_mass > (3.097-0.05)',
-    'dimu_mass < (3.097+0.05)',
+    'dimu_mass > (3.097-{})'.format(deltaDiMu),
+    'dimu_mass < (3.097+{})'.format(deltaDiMu),
     'b_mass > 5 ',
     'sv_lxy > 0.1 ',
     'sv_prob > 0.',
     'k_pt > 1.5 ',
     'abs(k_eta) < 2. ',
-    'l1_pt > 9. ',
+    #'l1_pt > 9. ',
     'l2_pt > 4. ',
     'abs(l2_eta) < 2 ',
+    'l1_softid==1',
+    #'l2_softid==1',
+    #'sv_lxysig > 5',
     #'hlt_mu9_ip6==1'
+  ]
+  ## start from Ludovico's selections and add soft id
+  my_new_selections = [
+    'b_cos2d > 0.9995 ',
+    'dimu_mass < (3.097+{}) '.format(deltaDiMu),
+    'dimu_mass > (3.097-{}) '.format(deltaDiMu),
+    'b_mass > 5 ',
+    'sv_lxy > 0.035 ',
+    'sv_prob > 0.08 ',
+    'k_pt > 1.0 ',
+    'abs(k_eta) < 1.6 ',
+    #'l1_pt > 9. ',
+    'l2_pt > 2. ',
+    'abs(l2_eta) < 1.8 ',
+    'l1_softid==1',
+    #'hlt_mu9_ip6==1',
   ]
 
   ## ludovico's
@@ -298,7 +324,10 @@ if __name__ == "__main__":
     #'hlt_mu9_ip6==1',
   ]
 
-  selBase = ' && '.join(my_selections)
+  if doNew:
+    selBase = ' && '.join(my_new_selections)
+  else:
+    selBase = ' && '.join(my_old_selections)
   ####print selBase
 
   ## fiducial cuts
@@ -346,8 +375,8 @@ if __name__ == "__main__":
   # careful, this is not positive definite...
   
   argus_shape = ROOT.RooRealVar('argus_shape','argus shape parameter',-3,-10.,-2.) # -5 ok
-  #argus_fallm = ROOT.RooRealVar('argus_fallm','argus falling mass',5.16, 5.16,5.16,)
-  argus_fallm = ROOT.RooRealVar('argus_fallm','argus falling mass',5.279, 5.279,5.279)
+  argus_fallm = ROOT.RooRealVar('argus_fallm','argus falling mass',5.16, 5.16,5.16,)
+  #argus_fallm = ROOT.RooRealVar('argus_fallm','argus falling mass',5.279, 5.279,5.279)
   argus = ROOT.RooArgusBG("argus","argus",mass,argus_fallm,argus_shape)
 
   exp1_a = ROOT.RooRealVar('exp1_a', 'exp1_a', -1., -10.,0.)
