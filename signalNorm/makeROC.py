@@ -15,6 +15,7 @@ treeMC = ROOT.TChain('control_tree')
 treeMC.AddFile(signalfile)
 
 sig_cuts = [0,1,5,10,15,20,25,30,35,40,50,60,70,80,90,100]
+#sig_cuts = [0,1]
 #sig_cuts = [0,1,5,10]
 
 
@@ -28,6 +29,7 @@ for lxysig in sig_cuts:
   sel = 'b_cos2d > 0.9995  && dimu_mass < (3.097+0.05)  && dimu_mass > (3.097-0.05)  && b_mass > 5  && sv_lxy > 0.035  && sv_prob > 0.08  && k_pt > 1.0  && abs(k_eta) < 1.6  && l2_pt > 2.  && abs(l2_eta) < 1.8  && l1_softid==1'
   
   sel_testedCut = sel + ' && sv_lxysig > {}'.format(lxysig)
+  #sel_testedCut = sel + ' && l2_softid == {}'.format(lxysig)
 
   sel_bkgWindow = ' && abs(b_mass - 5.279) > 0.15'
 

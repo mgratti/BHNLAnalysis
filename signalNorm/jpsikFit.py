@@ -9,24 +9,48 @@ from glob import glob
 #from spares import *
 
 
-mass_xlow  = 5.0
-mass_xhigh = 6.0
-whichSignalModel = 'voigt' # gauss, voigt, dscb
+from argparse import ArgumentParser
+parser = ArgumentParser(description='Production helper for B-initiated HNL signals', add_help=True)
+parser.add_argument('--whichSignalModel', type=str, dest='whichSignalModel', help='', default='voigt')
+parser.add_argument('--whichPRecBkgModel', type=str, dest='whichPRecBkgModel', help='', default='cb')
+parser.add_argument('--doNewSelection', dest='doNewSelection', help='', action='store_true', default=False)
+parser.add_argument('--doFiducial', dest='doFiducial', help='', action='store_true', default=False)
+parser.add_argument('--doFidOneBin', dest='doFidOneBin', help='', action='store_true', default=False)
+opt = parser.parse_args()
+
+
+
+mass_xlow   = 5.1
+mass_xhigh  = 5.6
+doSignalFit = False
+doFullFit   = True
+whichSignalModel  = opt.whichSignalModel #'voigt' # gauss, voigt, dscb, gauss2Sum
 whichCombBkgModel = 'exp' # poly1, exp
-whichPRecBkgModel = 'argus' # argus erf exp
+whichPRecBkgModel = opt.whichPRecBkgModel # argus argusPlusGauss argusConvGauss exp cb
 doAddJpsiPi = False
-doNew = True
+doNewFiles = True
+doNewSelection = opt.doNewSelection
 doHLTWeights = True
-doFiducial = False
+doFiducial = opt.doFiducial
+doFidOneBin = opt.doFidOneBin
 deltaDiMu = 0.05
+
+
+labelmodel={}
+labelmodel['gauss2Sum'] = 'Sum of two Gaussians'
+labelmodel['gauss'] = 'Gaussian'
+labelmodel['voigt'] = 'Voigtian'
+labelmodel['dscb'] = 'Double-sided Crystal Ball'
 
 def getTotalEffFiducial(nSelMC):
 
   b_fiducial_cuts = 'b_pt > 10 && b_pt < 17 && abs(b_y) < 1.45'
+  if doFidOneBin:
+    b_fiducial_cuts = 'b_pt > 10 && b_pt < 13 && abs(b_y) < 1.45'
   gen_filter_cuts = 'l1_pt > 6.8 && abs(l1_eta) < 1.55'
   
   ### Epsilon 2 
-  #### from "unfiltered" sample (i.e. no muon filter, but B filter with fiducial)
+  #### from 'unfiltered' sample (i.e. no muon filter, but B filter with fiducial)
   path = '/work/mratti/GEN_HNL/CMSSW_10_2_15/src/HNLsGen/genLevelAnalysis/outputfiles/'
   pl = 'V15_control_BfilterNoMufilter/'
   fname = 'mass999_ctau999_miniGenTree.root'
@@ -79,12 +103,12 @@ def getTotalEffFiducial(nSelMC):
 
 
 
-def getChiSquare(fitmodel,Rdata):
+def getChiSquare(fitmodel,RDSet):
  
-  flparams = fitmodel.getParameters(Rdata).selectByAttrib("Constant",ROOT.kFALSE) 
+  flparams = fitmodel.getParameters(RDSet).selectByAttrib('Constant',ROOT.kFALSE) 
   nflparams = flparams.getSize()
   my_frame = mass.frame()
-  Rdata.plotOn(my_frame) 
+  RDSet.plotOn(my_frame, RF.DataError(ROOT.RooAbsData.Poisson))
   nmeas = my_frame.GetNbinsX()
   ndof = - nflparams + nmeas  
 
@@ -93,6 +117,9 @@ def getChiSquare(fitmodel,Rdata):
 
   from scipy.stats import chi2
   prob = 1-chi2.cdf(my_chi2*ndof, ndof)
+
+  #chi2_var = ROOT.RooChi2Var('chi2_var', 'chi2_var', fitmodel, RDSet, RF.DataError(ROOT.RooAbsData.Poisson))
+  #print 'Chi2 from chi var', chi2_var.printValue()
   
 
   print ('\n****************************\n')
@@ -111,9 +138,9 @@ def drawPlot(frame,frame2,chisq,prob,sigmaBpm,lumi,label=''):
 
   hpull = frame.pullHist()
   hpull.SetMarkerSize(0.7)
-  frame2.addPlotable(hpull,"P");
+  frame2.addPlotable(hpull,'P');
 
-  c = ROOT.TCanvas("", "", 400, 400)
+  c = ROOT.TCanvas('', '', 400, 400)
   c.Draw()
   c.Divide(1,2)
   #ROOT.gPad.SetLeftMargin(0.15)
@@ -123,17 +150,20 @@ def drawPlot(frame,frame2,chisq,prob,sigmaBpm,lumi,label=''):
   ROOT.gPad.SetBottomMargin(0.10)
   ROOT.gPad.SetPad(0.01,0.2,0.99,0.99)
   frame.GetXaxis().SetTitleSize(0.04);
-  frame.GetXaxis().SetTitle("m_{K J/#psi} (GeV)")
+  frame.GetXaxis().SetTitle('m_{K J/#psi} (GeV)')
   frame.GetYaxis().SetTitleSize(0.04);
-  frame.GetYaxis().SetTitle("Entries")
+  frame.GetYaxis().SetTitle('Entries')
   frame.GetYaxis().SetTitleOffset(1.1)
   frame.Draw()
 
   labelchi2 = '#chi^{{2}}/n_{{dof}} = {:.1f}'.format(chisq)
-  labelprob = '  p-value = {:.2f}'.format(prob)
-  labelsigma = '#sigma(B^{{\pm}}) = {:.1f} x 10^{{9}} fb ({})'.format(sigmaBpm/1E9, 'inclusive' if not doFiducial else 'fiducial')
-  labellumi = 'L = {:.3f} fb^{{-1}}'.format(lumi)
-  defaultLabels([labelchi2+labelprob,labelsigma,labellumi], 0.55, 0.33) #spacing = 0.04, size = 0.027, dx = 0.12):
+  labelprob = '  p-value = {:.3f}'.format(prob)
+  if sigmaBpm is not None and lumi is not None:
+    labelsigma = '#sigma(B^{{\pm}}) = {:.1f} x 10^{{9}} fb ({})'.format(sigmaBpm/1E9, 'inclusive' if not doFiducial else 'fiducial')
+    labellumi = 'L = {:.3f} fb^{{-1}}'.format(lumi)
+    defaultLabels([labelchi2+labelprob,labelsigma,labellumi], 0.55, 0.23) #spacing = 0.04, size = 0.027, dx = 0.12):
+  else: 
+    defaultLabels([labelmodel[whichSignalModel],labelchi2+labelprob], 0.60, 0.25)
 
   c.cd(2)
   frame2.Draw()
@@ -145,17 +175,16 @@ def drawPlot(frame,frame2,chisq,prob,sigmaBpm,lumi,label=''):
   frame2.GetYaxis().SetTitleSize(0.17)
   frame2.GetYaxis().SetTitleOffset(0.24)
   frame2.GetYaxis().SetRangeUser(-3,3)        
-  frame2.GetYaxis().SetTitle("Pulls") 
-  frame2.GetXaxis().SetTitle("")      
+  frame2.GetYaxis().SetTitle('Pulls') 
+  frame2.GetXaxis().SetTitle('')      
   frame2.GetXaxis().SetLabelOffset(5)          
            
   c.SaveAs('fit{}.pdf'.format(label))
-  c.SaveAs('fit{}.png'.format(label))
 
 
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
 
   #### ROOT Options
   ROOT.gROOT.SetBatch(True)
@@ -177,7 +206,7 @@ if __name__ == "__main__":
     mult = 1.
 
 
-  if doNew:
+  if doNewFiles:
     # version of October 
     file_mc = '/pnfs/psi.ch/cms/trivcat/store/user/mratti/BHNLsGen/V15_control/mass999_ctau999/nanoFiles/merged/flat_bparknano_Oct20_Oct20.root'
     files_data_periodA = ['/pnfs/psi.ch/cms/trivcat/store/user/mratti/BHNLsGen/data/Control_Oct20/ParkingBPH1_Run2018A/merged/flat_bparknano_Oct20_TEST.root']
@@ -219,7 +248,7 @@ if __name__ == "__main__":
   sv_lxysig = ROOT.RooRealVar('sv_lxysig', 'sv_lxysig', 0,1E09)
   #l1_softid = ROOT.ROOT.RooRealVar('', '', 0,1)
   # nice to haves: impact parameters (?), significance of the displacement
-  if doNew:
+  if doNewFiles:
     b_y = ROOT.RooRealVar('b_y', 'b_y', -10., 10.)
     weight_hlt = ROOT.RooRealVar('weight_hlt', 'weight_hlt', 0., 1.)
     #matched_b_y = ROOT.RooRealVar('matched_b_y', 'matched_b_y', -10., 10.) # do not uncomment, still need to understand why, FIXME
@@ -247,7 +276,7 @@ if __name__ == "__main__":
   mvars.add(sv_lxy)
   mvars.add(sv_prob)
   mvars.add(hlt_mu9_ip6)
-  if doNew:
+  if doNewFiles:
     mvars.add(b_y)
     mvars.add(l1_softid)
     mvars.add(l2_softid)
@@ -256,7 +285,7 @@ if __name__ == "__main__":
     #mvars.add(matched_b_y)
   
   mvars_mc = mvars
-  if doNew and doHLTWeights:
+  if doNewFiles and doHLTWeights:
     mvars_mc.add(weight_hlt)
   #mvars_mc.add(ismatched)
   
@@ -324,16 +353,17 @@ if __name__ == "__main__":
     #'hlt_mu9_ip6==1',
   ]
 
-  if doNew:
+  if doNewFiles and doNewSelection:
     selBase = ' && '.join(my_new_selections)
   else:
     selBase = ' && '.join(my_old_selections)
-  ####print selBase
 
   ## fiducial cuts
-  selFiducial = 'b_pt > 10 && b_pt < 17 && abs(b_y) < 1.45'  
+  selFiducial =   'b_pt > 10 && b_pt < 17 && abs(b_y) < 1.45'  
+  if doFidOneBin:
+    selFiducial = 'b_pt > 10 && b_pt < 13 && abs(b_y) < 1.45' 
 
-  if doFiducial and doNew:
+  if doFiducial:
     sel = selBase +  ' && ' + selFiducial 
   else:
     sel = selBase
@@ -342,18 +372,18 @@ if __name__ == "__main__":
  
   # define the datasets
   Rdata = ROOT.RooDataSet('Rdata', 'data', tree_data, mvars, sel) # no weight
-  Rmc = ROOT.RooDataSet('Rmc', 'MC', tree_mc, mvars_mc, sel) ## TODO: add weights
+  Rmc = ROOT.RooDataSet('Rmc', 'MC', tree_mc, mvars_mc, sel) ## 
 
   print('before weighting')
   Rmc.Print()
-  if doNew and doHLTWeights:
+  if doNewFiles and doHLTWeights:
     Rmc = ROOT.RooDataSet('Rmc', 'MC', tree_mc, mvars_mc, sel, weight_hlt.GetName())
 
   print('after weighting')
   Rmc.Print()
 
   ## test
-  frametest = mass.frame(RF.Title(""))
+  frametest = mass.frame(RF.Title(''))
   Rdata.plotOn(frametest, RF.MarkerSize(0.5), RF.XErrorSize(0), RF.Name('data'))
   ctest = TCanvas()
   frametest.Draw()
@@ -368,31 +398,52 @@ if __name__ == "__main__":
   nbkg_comb = ROOT.RooRealVar('nbkg_comb','number of bkg events (combinatorial)',            1000*mult,0,1.0E07) 
   nbkg_prec = ROOT.RooRealVar('nbkg_prec','number of bkg events (partially reconstructed)', 40000*mult,0,1.0E07) 
   
-  ### 1) bkg from ~5 GeV (JPsi + hadrons), misreconstruction
-  erf_xshift = ROOT.RooRealVar('erf_xshift', 'xshift', 6., -1000., 1000.) 
-  erf_yshift = ROOT.RooRealVar('erf_yshift', 'yshift', 1., -1000., 1000.) 
-  erf = ROOT.RooGenericPdf('erf', 'erf', '-1.*TMath::Erf(mass-erf_xshift)+erf_yshift', ROOT.RooArgList(mass,erf_xshift,erf_yshift))
+  ### 1) bkg from ~5 GeV (JPsi + hadrons), misreconstruction 
+  argus_shape = ROOT.RooRealVar('argus_shape','argus shape parameter',-3,-10.,-1.) # -5 ok
+  argus_fallm = ROOT.RooRealVar('argus_fallm','argus falling mass',5.279, 5.16,5.32,)
+  #argus_fallm = ROOT.RooRealVar('argus_fallm','argus falling mass',5.16, 5.16,5.16,)
+  #argus_fallm = ROOT.RooRealVar('argus_fallm','argus falling mass',5.279, 5.279,5.279)
+  argus = ROOT.RooArgusBG('argus','argus',mass,argus_fallm,argus_shape)
+
+  # argus with gaussian resolution
+  gaussReso_mean =  ROOT.RooRealVar('gaussReso_mean', 'gaussReso_mean', 5, 4., 5.3)
+  gaussReso_sigma = ROOT.RooRealVar('gaussReso_sigma', 'gaussReso_sigma', 1., 0., 1.)
+  gaussReso = ROOT.RooGaussian('gaussReso', 'gaussReso', mass,gaussReso_mean,gaussReso_sigma) 
+  if whichPRecBkgModel == 'argusConvGauss':
+    mass.setBins(10000, 'cache')
+  argusConvGauss = ROOT.RooFFTConvPdf('argusConvGauss', 'argusConvGauss', mass, argus, gaussReso)
+  # argus + gaussian
+  argusPlusGauss_frac = ROOT.RooRealVar('argusPlusGauss_frac','argusPlusGauss_frac', 0.5, 0.0 ,1.)
+  argusPlusGauss = ROOT.RooAddPdf('argusPlusGauss', 'argusPlusGauss', ROOT.RooArgList(argus,gaussReso), ROOT.RooArgList(argusPlusGauss_frac))
+  #argusConvGauss = ROOT.RooNumConvPdf('argusConvGauss', 'argusConvGauss', mass, argus, gaussReso)
+  #RooFFTConvPdf lxg("lxg","landau (X) gauss",t,landau,gauss) ;
+  
+  # crystal ball
+  cb_mean   = ROOT.RooRealVar('cb_mean','cb_mean',  5.0, 4.9, 5.1)
+  cb_sigma  = ROOT.RooRealVar('cb_sigma','cb_sigma', 0.1, 0., 0.3) 
+  cb_alpha  = ROOT.RooRealVar('cb_alpha', 'cb_alpha', 0.5, 0., 2.) # alpha: where the Gaussian and exponential connect, at alpha * sigma of the Gaussian (pos)
+  cb_n      = ROOT.RooRealVar('cb_n', 'cb_n', 1., 0., 10.)         # the slope of the exponential 
+  cb        = ROOT.RooCBShape('cb', 'cb', mass, cb_mean, cb_sigma, cb_alpha, cb_n)
+
+  ##erf_xshift = ROOT.RooRealVar('erf_xshift', 'xshift', 6., -1000., 1000.) 
+  ##erf_yshift = ROOT.RooRealVar('erf_yshift', 'yshift', 1., -1000., 1000.) 
+  ##erf = ROOT.RooGenericPdf('erf', 'erf', '-1.*TMath::Erf(mass-erf_xshift)+erf_yshift', ROOT.RooArgList(mass,erf_xshift,erf_yshift))
   # careful, this is not positive definite...
   
-  argus_shape = ROOT.RooRealVar('argus_shape','argus shape parameter',-3,-10.,-2.) # -5 ok
-  argus_fallm = ROOT.RooRealVar('argus_fallm','argus falling mass',5.16, 5.16,5.16,)
-  #argus_fallm = ROOT.RooRealVar('argus_fallm','argus falling mass',5.279, 5.279,5.279)
-  argus = ROOT.RooArgusBG("argus","argus",mass,argus_fallm,argus_shape)
-
   exp1_a = ROOT.RooRealVar('exp1_a', 'exp1_a', -1., -10.,0.)
   exp1 = ROOT.RooExponential('exp1', 'Exponential', mass, exp1_a)
   
   ### 2) combinatorial
   #### exponential
-  exp_a = ROOT.RooRealVar('exp_a', 'exp_a', -1., -10.,0.)
+  exp_a = ROOT.RooRealVar('exp_a', 'exp_a', -0.0001, -5.,0.)
   exp = ROOT.RooExponential('exp', 'Exponential', mass, exp_a)
   
   #### polynomials
   poly_a0 = ROOT.RooRealVar('poly_a0', 'poly_a0',   2., -10000., 10000.)
   poly_a1 = ROOT.RooRealVar('poly_a1', 'poly_a1',   1., -10000., 10000.)
   poly_a2 = ROOT.RooRealVar('poly_a2', 'poly_a2', 0.01, -10000., 10000.)
-  poly1 = ROOT.RooPolynomial("poly1", "poly1", mass, ROOT.RooArgList(poly_a0, poly_a1))
-  poly2 = ROOT.RooPolynomial("poly2", "poly2", mass, ROOT.RooArgList(poly_a0, poly_a1, poly_a2))
+  poly1 = ROOT.RooPolynomial('poly1', 'poly1', mass, ROOT.RooArgList(poly_a0, poly_a1))
+  poly2 = ROOT.RooPolynomial('poly2', 'poly2', mass, ROOT.RooArgList(poly_a0, poly_a1, poly_a2))
 
   ### 3) JPsi pi
   #### gauss
@@ -406,93 +457,181 @@ if __name__ == "__main__":
   
   ### gauss
   gauss_mean  = ROOT.RooRealVar('gauss_mean', 'gauss_mean', 5.28, 5., 6.)
-  gauss_sigma = ROOT.RooRealVar('gauss_sigma', 'gauss_sigma', 0.02, 0., 0.025)
+  gauss_sigma = ROOT.RooRealVar('gauss_sigma', 'gauss_sigma', 0.06, 0., 0.08)
   gauss = ROOT.RooGaussian('gauss', 'gauss', mass,gauss_mean,gauss_sigma)
-  
+ 
+  ### sum of two gaussians
+  gauss2_meanDisp = ROOT.RooRealVar('gauss2_meanDisp', 'gauss2_meanDisp', 0., 0., 0.2)
+  if not doFullFit:
+    gauss2_sigmaMult = ROOT.RooRealVar('gauss2_sigmaMult', 'gauss2_sigmaMult', 0.5, 0.01, 1.)
+  else:
+    gauss2_sigmaMult = ROOT.RooRealVar('gauss2_sigmaMult', 'gauss2_sigmaMult', 0.686, 0.686, 0.686)
+  gauss2_mean =  ROOT.RooFormulaVar('gauss2_mean', 'gauss_mean+gauss2_meanDisp', ROOT.RooArgList(gauss_mean,gauss2_meanDisp) )
+  gauss2_sigma = ROOT.RooFormulaVar('gauss2_sigma','gauss_sigma*gauss2_sigmaMult', ROOT.RooArgList(gauss_sigma,gauss2_sigmaMult))
+  gauss2 = ROOT.RooGaussian('gauss2', 'gauss2', mass, gauss2_mean, gauss2_sigma)
+  if not doFullFit:
+    gauss2Sum_frac01 = ROOT.RooRealVar('gauss2Sum_frac01','gauss2Sum_frac01', 0.8, 0.0 ,0.95)
+  else:
+    gauss2Sum_frac01 = ROOT.RooRealVar('gauss2Sum_frac01','gauss2Sum_frac01', 0.51, 0.51 ,0.51)
+  gauss2Sum = ROOT.RooAddPdf('gauss2Sum', 'gauss2Sum', ROOT.RooArgList(gauss, gauss2), ROOT.RooArgList(gauss2Sum_frac01))
+
+  ### convolution of three gaussians 
+  # TODO
+ 
   ### RooVoigtian is an efficient implementation of the convolution of a Breit-Wigner with a Gaussian
   voigt_mean  = ROOT.RooRealVar('voigt_mean', 'voigt_mean', 5.28, 5., 6.)
-  voigt_sigma = ROOT.RooRealVar('voigt_sigma', 'voigt_sigma', 0.02, 0., 0.05)
-  voigt_width = ROOT.RooRealVar('voigt_width', 'voigt_width', 0.002, 0., 0.05)
+  voigt_sigma = ROOT.RooRealVar('voigt_sigma', 'voigt_sigma', 0.02, 0., 0.06)
+  voigt_width = ROOT.RooRealVar('voigt_width', 'voigt_width', 0.002, 0., 0.06)
   voigt       = ROOT.RooVoigtian('voigt', 'voigt', mass, voigt_mean, voigt_sigma, voigt_width)
   
   ### double-sided crystal ball (gaussian + asymmetric exponential tails) 
-  dscb1_mean   = ROOT.RooRealVar("dscb1_mean","dscb1_mean",  5.28, 5., 6.)
-  dscb1_sigma  = ROOT.RooRealVar("dscb1_sigma","dscb1_sigma", 0.02, 0., 0.025)
-  dscb1_alpha  = ROOT.RooRealVar("dscb1_alpha", "dscb1_alpha", 1., 0, 2.)
-  dscb1_n      = ROOT.RooRealVar("dscb1_n", "dscb1_n", 1., 0., 10.)
-  dscb2_alpha  = ROOT.RooRealVar("dscb2_alpha", "dscb2_alpha", 1., 0, 2.)
-  dscb2_n      = ROOT.RooRealVar("dscb2_n", "dscb2_n", 1., 0., 10.)
-  dbscb_frac12 = ROOT.RooRealVar("dbscb_frac12","dbscb_frac12", 0.0 ,1.0)
+  dscb1_mean   = ROOT.RooRealVar('dscb1_mean','dscb1_mean',  5.28, 5., 6.)
+  dscb1_sigma  = ROOT.RooRealVar('dscb1_sigma','dscb1_sigma', 0.02, 0., 0.05) 
+  dscb1_alpha  = ROOT.RooRealVar('dscb1_alpha', 'dscb1_alpha', 0.5, 0., 5.) # alpha: where the Gaussian and exponential connect, at alpha * sigma of the Gaussian (pos)
+  dscb1_n      = ROOT.RooRealVar('dscb1_n', 'dscb1_n', 1., 0., 10.)         # the slope of the exponential 
+  dscb2_alpha  = ROOT.RooRealVar('dscb2_alpha', 'dscb2_alpha', 0.5, 0., 5.)
+  dscb2_n      = ROOT.RooRealVar('dscb2_n', 'dscb2_n', 1., 0., 10.)
+  dbscb_frac12 = ROOT.RooRealVar('dbscb_frac12','dbscb_frac12', 0.0 ,1.0)
   
-  dscb1        = ROOT.RooCBShape("dscb1", "dscb1", mass, dscb1_mean, dscb1_sigma, dscb1_alpha, dscb1_n)
-  dscb2        = ROOT.RooCBShape("dscb2", "dscb2", mass, dscb1_mean, dscb1_sigma, dscb2_alpha, dscb2_n)
-  dscb         = ROOT.RooAddPdf("dscb", "dscb", dscb1, dscb2, dbscb_frac12) 
+  dscb1        = ROOT.RooCBShape('dscb1', 'dscb1', mass, dscb1_mean, dscb1_sigma, dscb1_alpha, dscb1_n)
+  dscb2        = ROOT.RooCBShape('dscb2', 'dscb2', mass, dscb1_mean, dscb1_sigma, dscb2_alpha, dscb2_n)
+  dscb         = ROOT.RooAddPdf('dscb', 'dscb', ROOT.RooArgList(dscb1, dscb2), ROOT.RooArgList(dbscb_frac12)) 
   
   # choose signal model
   if whichSignalModel == 'gauss':
-    fitmodel_mc = ROOT.RooAddPdf('fitmodel_mc','J/#psi K signal',ROOT.RooArgList(gauss),ROOT.RooArgList(nsig)) 
+    fitmodel_signal = ROOT.RooAddPdf('fitmodel_signal','J/#psi K signal',ROOT.RooArgList(gauss),ROOT.RooArgList(nsig)) 
   elif whichSignalModel == 'voigt':
-    fitmodel_mc = ROOT.RooAddPdf('fitmodel_mc','J/#psi K signal',ROOT.RooArgList(voigt),ROOT.RooArgList(nsig))
+    fitmodel_signal = ROOT.RooAddPdf('fitmodel_signal','J/#psi K signal',ROOT.RooArgList(voigt),ROOT.RooArgList(nsig))
   elif whichSignalModel == 'dscb':
-    fitmodel_mc = ROOT.RooAddPdf('fitmodel_mc','J/#psi K signal',ROOT.RooArgList(dscb),ROOT.RooArgList(nsig))
-  
-  # choose bkg model
-  if whichCombBkgModel == 'exp':
-    fitmodel_bkg_comb = ROOT.RooAddPdf('fitmodel_bkg_comb', 'Combinatorial bkg', ROOT.RooArgList(exp), ROOT.RooArgList(nbkg_comb))
-  elif whichCombBkgModel == 'poly1':
-    fitmodel_bkg_comb = ROOT.RooAddPdf('fitmodel_bkg_comb', 'Combinatorial bkg', ROOT.RooArgList(poly1), ROOT.RooArgList(nbkg_comb))
-  
-  if whichPRecBkgModel == 'argus':
-    fitmodel_bkg_prec = ROOT.RooAddPdf('fitmodel_bkg_prec', 'Partially reco bkg', ROOT.RooArgList(argus), ROOT.RooArgList(nbkg_prec))
-  elif whichPRecBkgModel == 'erf':
-    fitmodel_bkg_prec = ROOT.RooAddPdf('fitmodel_bkg_prec', 'Partially reco bkg', ROOT.RooArgList(erf), ROOT.RooArgList(nbkg_prec))
-  elif whichPRecBkgModel == 'exp':
-    fitmodel_bkg_prec = ROOT.RooAddPdf('fitmodel_bkg_prec', 'Partially reco bkg', ROOT.RooArgList(exp1), ROOT.RooArgList(nbkg_prec))
-  elif not whichPRecBkgModel:
-    fitmodel_bkg_prec = None
-    
-  fitmodel_bkg_peak = ROOT.RooAddPdf('fitmodel_bkg_peak', 'J/#psi #pi bkg', ROOT.RooArgList(gaussJpsiPi), ROOT.RooArgList(nbkg_peak))
-
-
-  if not doAddJpsiPi:
-    fitmodel = ROOT.RooAddPdf('fitmodel',
-                              'signal + bkg(comb) + bkg(prec)',
-                              ROOT.RooArgList(fitmodel_mc,fitmodel_bkg_comb,fitmodel_bkg_prec),
-                              ROOT.RooArgList(nsig,nbkg_comb,nbkg_prec)) 
-    
-    fitmodel_bkg = ROOT.RooAddPdf('fitmodel_bkg',
-                                  'bkg(comb) + bkg(prec)',
-                                  ROOT.RooArgList(fitmodel_bkg_comb,fitmodel_bkg_prec),
-                                  ROOT.RooArgList(nbkg_comb,nbkg_prec)) 
+    fitmodel_signal = ROOT.RooAddPdf('fitmodel_signal','J/#psi K signal',ROOT.RooArgList(dscb),ROOT.RooArgList(nsig))
+  elif whichSignalModel == 'gauss2Sum':
+    fitmodel_signal = ROOT.RooAddPdf('fitmodel_signal','J/#psi K signal',ROOT.RooArgList(gauss2Sum),ROOT.RooArgList(nsig))
   else:
-    fitmodel = ROOT.RooAddPdf('fitmodel',
-                              'signal + bkg(comb) + bkg(prec) + bkg(peak)',
-                              ROOT.RooArgList(fitmodel_mc,fitmodel_bkg_comb,fitmodel_bkg_prec,fitmodel_bkg_peak),
-                              ROOT.RooArgList(nsig,nbkg_comb,nbkg_prec,nbkg_peak)) 
+    print('Warning: fit model for signal was not defined')
     
-    fitmodel_bkg = ROOT.RooAddPdf('fitmodel_bkg',
-                                  'bkg(comb) + bkg(prec) + bkg(peak)',
-                                  ROOT.RooArgList(fitmodel_bkg_comb,fitmodel_bkg_prec,fitmodel_bkg_peak),
-                                  ROOT.RooArgList(nbkg_comb,nbkg_prec,nbkg_peak)) 
-    
+  
+  # choose bkg model for the full fit
+  if doFullFit:
+    if whichCombBkgModel == 'exp':
+      fitmodel_bkg_comb = ROOT.RooAddPdf('fitmodel_bkg_comb', 'Combinatorial bkg', ROOT.RooArgList(exp), ROOT.RooArgList(nbkg_comb))
+    elif whichCombBkgModel == 'poly1':
+      fitmodel_bkg_comb = ROOT.RooAddPdf('fitmodel_bkg_comb', 'Combinatorial bkg', ROOT.RooArgList(poly1), ROOT.RooArgList(nbkg_comb))
+    else: 
+      print('Warning: fit model for combinatorial background was not defined')
+    if whichPRecBkgModel == 'argus':
+      fitmodel_bkg_prec = ROOT.RooAddPdf('fitmodel_bkg_prec', 'Partially reco bkg', ROOT.RooArgList(argus), ROOT.RooArgList(nbkg_prec))
+    elif whichPRecBkgModel == 'argusConvGauss':
+      fitmodel_bkg_prec = ROOT.RooAddPdf('fitmodel_bkg_prec', 'Partially reco bkg', ROOT.RooArgList(argusConvGauss), ROOT.RooArgList(nbkg_prec))
+    elif whichPRecBkgModel == 'argusPlusGauss':
+      fitmodel_bkg_prec = ROOT.RooAddPdf('fitmodel_bkg_prec', 'Partially reco bkg', ROOT.RooArgList(argusPlusGauss), ROOT.RooArgList(nbkg_prec))
+    elif whichPRecBkgModel == 'cb':
+      fitmodel_bkg_prec = ROOT.RooAddPdf('fitmodel_bkg_prec', 'Partially reco bkg', ROOT.RooArgList(cb), ROOT.RooArgList(nbkg_prec))
+    #elif whichPRecBkgModel == 'erf':
+    #  fitmodel_bkg_prec = ROOT.RooAddPdf('fitmodel_bkg_prec', 'Partially reco bkg', ROOT.RooArgList(erf), ROOT.RooArgList(nbkg_prec))
+    elif whichPRecBkgModel == 'exp':
+      fitmodel_bkg_prec = ROOT.RooAddPdf('fitmodel_bkg_prec', 'Partially reco bkg', ROOT.RooArgList(exp1), ROOT.RooArgList(nbkg_prec))
+    else:
+      print('Warning: fit model for partially reconstructed background was not defined')
+      
+    fitmodel_bkg_peak = ROOT.RooAddPdf('fitmodel_bkg_peak', 'J/#psi #pi bkg', ROOT.RooArgList(gaussJpsiPi), ROOT.RooArgList(nbkg_peak))
 
-    
+  
+    if not doAddJpsiPi:
+      fitmodel = ROOT.RooAddPdf('fitmodel',
+                                'signal + bkg(comb) + bkg(prec)',
+                                ROOT.RooArgList(fitmodel_signal,fitmodel_bkg_comb,fitmodel_bkg_prec),
+                                ROOT.RooArgList(nsig,nbkg_comb,nbkg_prec)) 
+      
+    else:
+      fitmodel = ROOT.RooAddPdf('fitmodel',
+                                'signal + bkg(comb) + bkg(prec) + bkg(peak)',
+                                ROOT.RooArgList(fitmodel_signal,fitmodel_bkg_comb,fitmodel_bkg_prec,fitmodel_bkg_peak),
+                                ROOT.RooArgList(nsig,nbkg_comb,nbkg_prec,nbkg_peak)) 
+      
+  # choose bkg model for the MC-only fit
+  if doSignalFit:
+    fitmodel_bkg_comb = ROOT.RooAddPdf('fitmodel_bkg_comb', 'Combinatorial bkg', ROOT.RooArgList(exp), ROOT.RooArgList(nbkg_comb))
+    fitmodel =  ROOT.RooAddPdf('fitmodel', 
+                               'signal + bkg(comb)',  
+                               ROOT.RooArgList(fitmodel_signal,fitmodel_bkg_comb), 
+                               ROOT.RooArgList(nsig,nbkg_comb))
+
 
   #############
   # Signal fit 
   #############
+  if doSignalFit: 
+    mass.setRange(mass_xlow,mass_xhigh)
+    results = fitmodel.fitTo(Rmc, RF.Extended(True), RF.Save(), RF.SumW2Error(ROOT.kTRUE)) 
+    frame = mass.frame(RF.Title(''), RF.XErrorSize(0), RF.Name('MC'))
+    Rmc.plotOn(frame, RF.MarkerSize(0.5)) # weirdly, it's important to plot Rmc first...
+    fitmodel.plotOn(frame, RF.Components('fitmodel_signal'),RF.LineColor(ROOT.kRed), RF.LineStyle(ROOT.kDashed), RF.Name('signal'))
+    fitmodel.plotOn(frame, RF.Components('fitmodel_bkg_comb'),RF.LineColor(ROOT.kOrange), RF.LineStyle(ROOT.kDashed), RF.Name('bkg_comb'))
+    fitmodel.plotOn(frame, RF.LineColor(ROOT.kBlue)) # full model at the end !
+    fitmodel.paramOn(frame, RF.ShowConstants(ROOT.kTRUE),RF.Format('NEU',RF.AutoPrecision()),RF.Layout(0.65,0.93,0.92))
+    frame.getAttText().SetTextSize(0.02) #
+    frame2 = mass.frame(RF.Title(' '))
+    chisq,prob=getChiSquare(fitmodel,Rmc)
+    frame2 = mass.frame(RF.Title(' '))
+    drawPlot(frame,frame2,chisq,prob,None,None,label='MC_{}'.format(whichSignalModel))
+
   
-  #fit 
-#  mass.setRange(mass_xlow,mass_xhigh)
-#  results_mc = fitmodel_mc.fitTo(Rmc, RF.Extended(True), RF.Save()) 
-#  
-#  #plot
-#  frame_mc = mass.frame(RF.Title(""))
-#  Rmc.plotOn(frame_mc, RF.MarkerSize(0.5)) # weirdly, it's important to plot Rmc first...
-#  fitmodel_mc.plotOn(frame_mc, RF.LineColor(ROOT.kRed))
-#  frame2_mc = mass.frame(RF.Title(" "))
-#  drawPlot(frame_mc,frame2_mc,-1,'MC')
+  #############
+  # Full fit 
+  #############
+  if doFullFit:
+    results = fitmodel.fitTo(Rdata, RF.Extended(True), RF.Save()) 
+    frame = mass.frame(RF.Title(''))
+    Rdata.plotOn(frame, RF.MarkerSize(0.5), RF.XErrorSize(0), RF.Name('data')) 
+    fitmodel.plotOn(frame, RF.Components('fitmodel_signal'),RF.LineColor(ROOT.kRed), RF.LineStyle(ROOT.kDashed), RF.Name('signal'))
+    fitmodel.plotOn(frame, RF.Components('fitmodel_bkg_comb'),RF.LineColor(ROOT.kOrange), RF.LineStyle(ROOT.kDashed), RF.Name('bkg_comb'))
+    fitmodel.plotOn(frame, RF.Components('fitmodel_bkg_prec'),RF.LineColor(ROOT.kGreen), RF.LineStyle(ROOT.kDashed), RF.Name('bkg_prec'))
+    if doAddJpsiPi: 
+      fitmodel.plotOn(frame, RF.Components('fitmodel_bkg_peak'), RF.LineColor(ROOT.kMagenta), RF.LineStyle(ROOT.kDashed), RF.Name('bkg_peak'))
+    fitmodel.plotOn(frame, RF.LineColor(ROOT.kBlue)) # full model at the end !
+    fitmodel.paramOn(frame, RF.ShowConstants(ROOT.kTRUE),RF.Format('NEU',RF.AutoPrecision()),RF.Layout(0.65,0.93,0.92))
+    frame.getAttText().SetTextSize(0.02) #
+    frame2 = mass.frame(RF.Title(' '))
   
+    chisq,prob=getChiSquare(fitmodel,Rdata)
+  
+    ###########
+    # Calculate normalisation factor
+    ##########
+    # get the parameter and the parameters error 
+    nSig = nsig.getVal()
+    if doFiducial:
+      nSelMC = Rmc.sumEntries()
+      totalEffMC = getTotalEffFiducial(nSelMC)
+  
+    else:
+      nGenTot = 13787971.0 # before filter, number of Bbar events
+      nSelMC = Rmc.sumEntries()  # get the entries in the tree 
+      totalEffMC = nSelMC / nGenTot
+      
+    BR_JpsiK =    10.20E-04 #pm 0.19  our fit  #Gamma274/Gamma, https://pdglive.lbl.gov/BranchingRatio.action?desig=3&parCode=S041&home=MXXX045, 2021 
+    BR_JpsiMuMu = 5.961E-02 #pm 0.033          #Gamma7/Gamma, https://pdglive.lbl.gov/BranchingRatio.action?desig=2&parCode=M070&home=MXXX025, 2021
+    ###print ('nSel={}'.format(nSel))
+    lumi = 0.774 # /fb 
+  
+    sigmaBpm = nSig / (BR_JpsiK*BR_JpsiMuMu) / totalEffMC / lumi
+    print ('Extracted value of sigma (fb) = {:.2e}'.format(sigmaBpm))
+  
+  
+    #######
+    # Draw and save result
+    #######
+    fiduciallabel = '_inclusive' if not doFiducial else ('_fiducial' if not doFidOneBin else '_fiducialOneBin')
+    selectionlabel = 'newSel' if doNewSelection else 'oldSel'
+    label='data_sig{}_bkg{}_{}{}'.format(whichSignalModel,whichPRecBkgModel,selectionlabel,fiduciallabel) 
+    drawPlot(frame,frame2,chisq,prob,sigmaBpm,lumi,label)
+
+    with open('fit{}.txt'.format(label), 'w') as fout:
+      fout.write('Extracted value of sigma (fb) = {:.2e}\n'.format(sigmaBpm))
+      fout.write('Chi2/ndof={:.3f}\n'.format(chisq))
+      fout.write('Prob={:.3f}\n'.format(prob))
+
+
   #############
   # Sidebands fit
   ############
@@ -502,62 +641,13 @@ if __name__ == "__main__":
 #  #fitmodel_bkg_comb.fitTo(Rdata, RF.Extended(True), RF.Range('high'))
 #  
 #  #plot
-#  frame = mass.frame(RF.Title(""))
+#  frame = mass.frame(RF.Title(''))
 #  Rdata.plotOn(frame, RF.MarkerSize(0.5)) 
 #  fitmodel_bkg.plotOn(frame, RF.Components('fitmodel_bkg_comb'),RF.LineColor(ROOT.kOrange))
 #  fitmodel_bkg.plotOn(frame, RF.Components('fitmodel_bkg_prec'),RF.LineColor(ROOT.kGreen))
 #  fitmodel_bkg.plotOn(frame, RF.LineColor(ROOT.kBlue)) # total model as the last one, so that pulls are correct...
 #  #fitmodel_bkg_comb.plotOn(frame, RF.LineColor(ROOT.kBlue)) # total model as the last one, so that pulls are correct...
-#  frame2 = mass.frame(RF.Title(" "))
+#  frame2 = mass.frame(RF.Title(' '))
 #  drawPlot(frame,frame2,'bkg') 
 
-  #############
-  # Full fit 
-  #############
-  
-  results = fitmodel.fitTo(Rdata, RF.Extended(True), RF.Save()) 
-  #plot
-  frame = mass.frame(RF.Title(""))
-  Rdata.plotOn(frame, RF.MarkerSize(0.5), RF.XErrorSize(0), RF.Name('data')) 
-  fitmodel.plotOn(frame, RF.Components('fitmodel_mc'),RF.LineColor(ROOT.kRed), RF.LineStyle(ROOT.kDashed), RF.Name('signal'))
-  fitmodel.plotOn(frame, RF.Components('fitmodel_bkg_comb'),RF.LineColor(ROOT.kOrange), RF.LineStyle(ROOT.kDashed), RF.Name('bkg_comb'))
-  fitmodel.plotOn(frame, RF.Components('fitmodel_bkg_prec'),RF.LineColor(ROOT.kGreen), RF.LineStyle(ROOT.kDashed), RF.Name('bkg_prec'))
-  if doAddJpsiPi: 
-    fitmodel.plotOn(frame, RF.Components('fitmodel_bkg_peak'), RF.LineColor(ROOT.kMagenta), RF.LineStyle(ROOT.kDashed), RF.Name('bkg_peak'))
-  fitmodel.plotOn(frame, RF.LineColor(ROOT.kBlue)) # full model at the end !
-  fitmodel.paramOn(frame, RF.ShowConstants(ROOT.kTRUE),RF.Format("NEU",RF.AutoPrecision()),RF.Layout(0.65,0.93,0.92))
-  frame.getAttText().SetTextSize(0.02) #
-  frame2 = mass.frame(RF.Title(" "))
 
-  chisq,prob=getChiSquare(fitmodel,Rdata)
-
-
-
-  ###########
-  # Calculate normalisation factor
-  ##########
-  # get the parameter and the parameters error 
-  nSig = nsig.getVal()
-  if doFiducial:
-    ###nGenTot = 13787971.0 # FIXME: after filter + B-fiducial cuts
-    nSelMC = Rmc.sumEntries()
-    totalEffMC = getTotalEffFiducial(nSelMC)
-
-  else:
-    nGenTot = 13787971.0 # before filter, number of Bbar events
-    nSelMC = Rmc.sumEntries()  # get the entries in the tree 
-    totalEffMC = nSelMC / nGenTot
-    
-  BR_JpsiK =    10.20E-04 #pm 0.19  our fit  #Gamma274/Gamma, https://pdglive.lbl.gov/BranchingRatio.action?desig=3&parCode=S041&home=MXXX045, 2021 
-  BR_JpsiMuMu = 5.961E-02 #pm 0.033          #Gamma7/Gamma, https://pdglive.lbl.gov/BranchingRatio.action?desig=2&parCode=M070&home=MXXX025, 2021
-  ###print ('nSel={}'.format(nSel))
-  lumi = 0.774 # /fb 
-
-  sigmaBpm = nSig / (BR_JpsiK*BR_JpsiMuMu) / totalEffMC / lumi
-  print ('Extracted value of sigma (fb) = {:.2e}'.format(sigmaBpm))
-
-
-  #######
-  # Draw
-  #######
-  drawPlot(frame,frame2,chisq,prob,sigmaBpm,lumi)

@@ -135,10 +135,11 @@ def makeRatioPlot(hNum, hDen, hDen2="", nameNum="num", nameDen="den", nameDen2="
       histo_saver.append(hDenNorm2)
     else:
       hDen2.Draw('samehistE')
-    leg.AddEntry(hDen2, nameDen2, 'LP')
 
   leg.AddEntry(hNum, nameNum, 'LP')
   leg.AddEntry(hDen, nameDen, 'LP')
+  if nameDen2 != "":
+    leg.AddEntry(hDen2, nameDen2, 'LP')
   leg.Draw('same')
   #leg.Draw('same')
 
@@ -179,7 +180,8 @@ def makeRatioPlot(hNum, hDen, hDen2="", nameNum="num", nameDen="den", nameDen2="
     #print hRatio.Integral(), hRatio2.Integral()
 
     hRatio.Divide(hDenNorm)
-    if nameDen2 != "": hRatio2.Divide(hDenNorm2)
+    if nameDen2 != "": 
+      hRatio2.Divide(hDenNorm2)
 
     #print 'Ratio integral after division'
     #print hRatio.Integral(), hRatio2.Integral()
@@ -189,11 +191,11 @@ def makeRatioPlot(hNum, hDen, hDen2="", nameNum="num", nameDen="den", nameDen2="
     hRatio.Divide(hDen)
     if nameDen2 != "": hRatio2.Divide(hDen2)
 
-
-
-  #hRatio.SetLineColor(kRed+2)
-  if nameDen2 != "": hRatio2.SetLineColor(kBlue)
-  #print hRatio.Integral()
+  # set colors
+  if nameDen2 != "":
+    hRatio.SetLineColor(kOrange+1)
+    hRatio2.SetLineColor(kBlue)
+    
   makeRatioSettings(hRatio)
   if nameDen2 != "": makeRatioSettings(hRatio2)
   hRatio.GetYaxis().SetRangeUser(ratioyrange[0],ratioyrange[1])
