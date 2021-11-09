@@ -94,7 +94,8 @@ def getTotalEffFiducial(nSelMC):
 
   peff = ROOT.TEfficiency(hnum,hden)
   eff1,eff1_errup,eff1_errdn = peff.GetEfficiency(1), peff.GetEfficiencyErrorUp(1), peff.GetEfficiencyErrorLow(1)
-  
+ 
+ 
   print('===> Resulting efficiency Epsilon1')
   print('eff1 = {:.4f} + {:.4f} - {:.4f}'.format(eff1,eff1_errup,eff1_errdn))
 
