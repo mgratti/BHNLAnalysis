@@ -16,12 +16,13 @@ parser.add_argument('--whichPRecBkgModel', type=str, dest='whichPRecBkgModel', h
 parser.add_argument('--doNewSelection', dest='doNewSelection', help='', action='store_true', default=False)
 parser.add_argument('--doFiducial', dest='doFiducial', help='', action='store_true', default=False)
 parser.add_argument('--doFidOneBin', dest='doFidOneBin', help='', action='store_true', default=False)
+parser.add_argument('--whichCutRemoved', type=int, dest='whichCutRemoved', help='', default=None)
 opt = parser.parse_args()
 
 
 
-mass_xlow   = 5.1
-mass_xhigh  = 5.6
+mass_xlow   = 5.1 # for signal fit only
+mass_xhigh  = 5.6 # for signal fit only
 doSignalFit = False
 doFullFit   = True
 whichSignalModel  = opt.whichSignalModel #'voigt' # gauss, voigt, dscb, gauss2Sum
@@ -93,14 +94,15 @@ def getTotalEffFiducial(nSelMC):
   hnum.SetBinError(1,ROOT.TMath.Sqrt(nSelMC))  
 
   peff = ROOT.TEfficiency(hnum,hden)
-  eff1,eff1_errup,eff1_errdn = peff.GetEfficiency(1), peff.GetEfficiencyErrorUp(1), peff.GetEfficiencyErrorLow(1)
- 
+  eff1,eff1_errup,eff1_errdn = peff.GetEfficiency(1), peff.GetEfficiencyErrorUp(1), peff.GetEfficiencyErrorLow(1) 
  
   print('===> Resulting efficiency Epsilon1')
   print('eff1 = {:.4f} + {:.4f} - {:.4f}'.format(eff1,eff1_errup,eff1_errdn))
 
+  toteff = eff1*eff2
+  toteff_err = ROOT.TMath.Sqrt((eff1_errup/eff1)**2 + (eff2_errup/eff2)**2) * toteff
 
-  return eff1*eff2
+  return toteff,toteff_err
 
 
 
@@ -135,7 +137,7 @@ def getChiSquare(fitmodel,RDSet):
 
   return my_chi2,prob
 
-def drawPlot(frame,frame2,chisq,prob,sigmaBpm,lumi,label=''):
+def drawPlot(frame,frame2,chisq,prob,sigmaBpm,sigmaBpmErr,lumi,label=''):
 
   hpull = frame.pullHist()
   hpull.SetMarkerSize(0.7)
@@ -160,9 +162,11 @@ def drawPlot(frame,frame2,chisq,prob,sigmaBpm,lumi,label=''):
   labelchi2 = '#chi^{{2}}/n_{{dof}} = {:.1f}'.format(chisq)
   labelprob = '  p-value = {:.3f}'.format(prob)
   if sigmaBpm is not None and lumi is not None:
-    labelsigma = '#sigma(B^{{\pm}}) = {:.1f} x 10^{{9}} fb ({})'.format(sigmaBpm/1E9, 'inclusive' if not doFiducial else 'fiducial')
+    labelsigma = '#sigma(B^{{\pm}}) = ({:.1f} #pm {:.1f}) x 10^{{9}} fb ({})'.format(sigmaBpm/1E9,sigmaBpmErr/1E9, 'inclusive' if not doFiducial else 'fiducial')
     labellumi = 'L = {:.3f} fb^{{-1}}'.format(lumi)
-    defaultLabels([labelchi2+labelprob,labelsigma,labellumi], 0.55, 0.23) #spacing = 0.04, size = 0.027, dx = 0.12):
+    #defaultLabels([labelchi2+labelprob,labelsigma,labellumi], 0.55, 0.23) #spacing = 0.04, size = 0.027, dx = 0.12)
+    defaultLabels([labelchi2+labelprob,labelsigma], 0.55, 0.23) #spacing = 0.04, size = 0.027, dx = 0.12)
+    defaultLabels([labellumi], 0.82,0.93)
   else: 
     defaultLabels([labelmodel[whichSignalModel],labelchi2+labelprob], 0.60, 0.25)
 
@@ -191,7 +195,8 @@ if __name__ == '__main__':
   ROOT.gROOT.SetBatch(True)
   ROOT.TH1.SetDefaultSumw2()
   ROOT.TH1.StatOverflows(ROOT.kTRUE) # consider overflows for mean and rms calculation
-  ROOT.gROOT.ProcessLine('.L /work/mratti/CMS_style/tdrstyle.C')
+  #ROOT.gROOT.ProcessLine('.L /work/mratti/CMS_style/tdrstyle.C')
+  ROOT.gROOT.ProcessLine('.L ./tdrstyle.C')
   ROOT.gROOT.ProcessLine('setTDRStyle()')
   ROOT.gStyle.SetTitleXOffset(1.1);
   ROOT.gStyle.SetTitleYOffset(1.45);
@@ -305,16 +310,15 @@ if __name__ == '__main__':
   
   ## baseline + trigger cut (only for cross-checking purposes)
   my_old_selections = [
-    'b_cos2d > 0.995',
-    'dimu_mass > (3.097-{})'.format(deltaDiMu),
-    'dimu_mass < (3.097+{})'.format(deltaDiMu),
     'b_mass > 5 ',
-    'sv_lxy > 0.1 ',
-    'sv_prob > 0.',
+    'b_cos2d > 0.995', 
+    'abs(dimu_mass-3.097) < {} '.format(deltaDiMu),
+    'sv_lxy > 0.1 ', 
+    'sv_prob > 0.', 
     'k_pt > 1.5 ',
     'abs(k_eta) < 2. ',
     #'l1_pt > 9. ',
-    'l2_pt > 4. ',
+    'l2_pt > 2. ', 
     'abs(l2_eta) < 2 ',
     'l1_softid==1',
     #'l2_softid==1',
@@ -323,20 +327,38 @@ if __name__ == '__main__':
   ]
   ## start from Ludovico's selections and add soft id
   my_new_selections = [
-    'b_cos2d > 0.9995 ',
-    'dimu_mass < (3.097+{}) '.format(deltaDiMu),
-    'dimu_mass > (3.097-{}) '.format(deltaDiMu),
     'b_mass > 5 ',
+    'b_cos2d > 0.9995 ',
+    'abs(dimu_mass-3.097) < {} '.format(deltaDiMu),
     'sv_lxy > 0.035 ',
     'sv_prob > 0.08 ',
     'k_pt > 1.0 ',
     'abs(k_eta) < 1.6 ',
-    #'l1_pt > 9. ',
+    ##'l1_pt > 9. ',
     'l2_pt > 2. ',
     'abs(l2_eta) < 1.8 ',
     'l1_softid==1',
-    #'hlt_mu9_ip6==1',
+    ##'hlt_mu9_ip6==1',
   ]
+
+  label_new_selections = [
+    'bMass',
+    'cos2D',
+    'dimuMass',
+    'Lxy',
+    'svProb',
+    'kPt',
+    'kEta',
+    ## 'l1Pt',
+    'l2Pt',
+    'l2Eta',
+    'l1Soft',
+    ## 'hltMu9',
+  ]
+
+  if opt.doNewSelection and opt.whichCutRemoved is not None:
+    my_new_selections = my_new_selections[0:opt.whichCutRemoved] + my_new_selections[opt.whichCutRemoved+1:]
+    removed_selection_label = label_new_selections[opt.whichCutRemoved]
 
   ## ludovico's
   ludo_selections = [
@@ -463,17 +485,22 @@ if __name__ == '__main__':
  
   ### sum of two gaussians
   gauss2_meanDisp = ROOT.RooRealVar('gauss2_meanDisp', 'gauss2_meanDisp', 0., 0., 0.2)
-  if not doFullFit:
-    gauss2_sigmaMult = ROOT.RooRealVar('gauss2_sigmaMult', 'gauss2_sigmaMult', 0.5, 0.01, 1.)
-  else:
-    gauss2_sigmaMult = ROOT.RooRealVar('gauss2_sigmaMult', 'gauss2_sigmaMult', 0.686, 0.686, 0.686)
+  gauss2Sum_frac01 = ROOT.RooRealVar('gauss2Sum_frac01','gauss2Sum_frac01', 0.8, 0.0 ,0.95)
+  gauss2_sigmaMult = ROOT.RooRealVar('gauss2_sigmaMult', 'gauss2_sigmaMult', 0.5, 0.01, 1.)
+
+  #if not doFullFit:
+    ##gauss_sigma = ROOT.RooRealVar('gauss_sigma', 'gauss_sigma', 0.06, 0., 0.08)
+    #gauss2_sigmaMult = ROOT.RooRealVar('gauss2_sigmaMult', 'gauss2_sigmaMult', 0.5, 0.01, 1.)
+    #gauss2_meanDisp = ROOT.RooRealVar('gauss2_meanDisp', 'gauss2_meanDisp', 0., 0., 0.2)
+  #  gauss2Sum_frac01 = ROOT.RooRealVar('gauss2Sum_frac01','gauss2Sum_frac01', 0.8, 0.0 ,0.95)
+  #else:
+    ##gauss_sigma = ROOT.RooRealVar('gauss_sigma', 'gauss_sigma', 0.0375 , 0.0375 , 0.0375 )
+    #gauss2_sigmaMult = ROOT.RooRealVar('gauss2_sigmaMult', 'gauss2_sigmaMult', 0.686, 0.686, 0.686)
+    #gauss2_meanDisp = ROOT.RooRealVar('gauss2_meanDisp', 'gauss2_meanDisp', 0.0044, 0.0044, 0.0044)
+  #  gauss2Sum_frac01 = ROOT.RooRealVar('gauss2Sum_frac01','gauss2Sum_frac01', 0.51, 0.51 ,0.51)
   gauss2_mean =  ROOT.RooFormulaVar('gauss2_mean', 'gauss_mean+gauss2_meanDisp', ROOT.RooArgList(gauss_mean,gauss2_meanDisp) )
   gauss2_sigma = ROOT.RooFormulaVar('gauss2_sigma','gauss_sigma*gauss2_sigmaMult', ROOT.RooArgList(gauss_sigma,gauss2_sigmaMult))
   gauss2 = ROOT.RooGaussian('gauss2', 'gauss2', mass, gauss2_mean, gauss2_sigma)
-  if not doFullFit:
-    gauss2Sum_frac01 = ROOT.RooRealVar('gauss2Sum_frac01','gauss2Sum_frac01', 0.8, 0.0 ,0.95)
-  else:
-    gauss2Sum_frac01 = ROOT.RooRealVar('gauss2Sum_frac01','gauss2Sum_frac01', 0.51, 0.51 ,0.51)
   gauss2Sum = ROOT.RooAddPdf('gauss2Sum', 'gauss2Sum', ROOT.RooArgList(gauss, gauss2), ROOT.RooArgList(gauss2Sum_frac01))
 
   ### convolution of three gaussians 
@@ -603,12 +630,13 @@ if __name__ == '__main__':
     nSig = nsig.getVal()
     if doFiducial:
       nSelMC = Rmc.sumEntries()
-      totalEffMC = getTotalEffFiducial(nSelMC)
+      totalEffMC,totalEffMC_err = getTotalEffFiducial(nSelMC)
   
     else:
       nGenTot = 13787971.0 # before filter, number of Bbar events
       nSelMC = Rmc.sumEntries()  # get the entries in the tree 
       totalEffMC = nSelMC / nGenTot
+      totalEffMC_err = ROOT.TMath.Sqrt( 1/nSelMC + 1/nGenTot ) * totalEffMC
       
     BR_JpsiK =    10.20E-04 #pm 0.19  our fit  #Gamma274/Gamma, https://pdglive.lbl.gov/BranchingRatio.action?desig=3&parCode=S041&home=MXXX045, 2021 
     BR_JpsiMuMu = 5.961E-02 #pm 0.033          #Gamma7/Gamma, https://pdglive.lbl.gov/BranchingRatio.action?desig=2&parCode=M070&home=MXXX025, 2021
@@ -616,7 +644,11 @@ if __name__ == '__main__':
     lumi = 0.774 # /fb 
   
     sigmaBpm = nSig / (BR_JpsiK*BR_JpsiMuMu) / totalEffMC / lumi
-    print ('Extracted value of sigma (fb) = {:.2e}'.format(sigmaBpm))
+    statErr_data = 1./ROOT.TMath.Sqrt(nSig)  * sigmaBpm
+    statErr_MC   = totalEffMC_err/totalEffMC * sigmaBpm
+    sigmaBpmErr = ROOT.TMath.Sqrt(statErr_data**2+statErr_MC**2)
+
+    print ('Extracted value of sigma (fb) = {:.4e} +/- {:.4e} (stat data) +/- {:.4e} (stat MC)'.format(sigmaBpm,statErr_data,statErr_MC))
   
   
     #######
@@ -624,13 +656,18 @@ if __name__ == '__main__':
     #######
     fiduciallabel = '_inclusive' if not doFiducial else ('_fiducial' if not doFidOneBin else '_fiducialOneBin')
     selectionlabel = 'newSel' if doNewSelection else 'oldSel'
+    if doNewSelection and opt.whichCutRemoved is not None:
+      selectionlabel += '_no{}'.format(removed_selection_label) 
     label='data_sig{}_bkg{}_{}{}'.format(whichSignalModel,whichPRecBkgModel,selectionlabel,fiduciallabel) 
-    drawPlot(frame,frame2,chisq,prob,sigmaBpm,lumi,label)
+    drawPlot(frame,frame2,chisq,prob,sigmaBpm,sigmaBpmErr,lumi,label)
 
     with open('fit{}.txt'.format(label), 'w') as fout:
       fout.write('Extracted value of sigma (fb) = {:.2e}\n'.format(sigmaBpm))
       fout.write('Chi2/ndof={:.3f}\n'.format(chisq))
       fout.write('Prob={:.3f}\n'.format(prob))
+      fout.write('Selection:\n')
+      for cut in sel.split('&&'):
+        fout.write('  '+cut+'\n')
 
 
   #############
