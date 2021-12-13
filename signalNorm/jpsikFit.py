@@ -35,6 +35,8 @@ doHLTWeights = True
 doFiducial = opt.doFiducial
 doFidOneBin = opt.doFidOneBin
 deltaDiMu = 0.05
+doDrawParameters = False
+doDrawLegend = True
 
 
 labelmodel={}
@@ -137,7 +139,7 @@ def getChiSquare(fitmodel,RDSet):
 
   return my_chi2,prob
 
-def drawPlot(frame,frame2,chisq,prob,sigmaBpm,sigmaBpmErr,lumi,label=''):
+def drawPlot(frame,frame2,chisq,prob,sigmaBpm,sigmaBpmErr,lumi,label='',leg=None):
 
   hpull = frame.pullHist()
   hpull.SetMarkerSize(0.7)
@@ -156,8 +158,11 @@ def drawPlot(frame,frame2,chisq,prob,sigmaBpm,sigmaBpmErr,lumi,label=''):
   frame.GetXaxis().SetTitle('m_{K J/#psi} (GeV)')
   frame.GetYaxis().SetTitleSize(0.04);
   frame.GetYaxis().SetTitle('Entries')
-  frame.GetYaxis().SetTitleOffset(1.1)
+  frame.GetYaxis().SetTitleOffset(1.35)
   frame.Draw()
+
+  if doDrawLegend and leg and not doDrawParameters:
+    leg.Draw("same")     
 
   labelchi2 = '#chi^{{2}}/n_{{dof}} = {:.1f}'.format(chisq)
   labelprob = '  p-value = {:.3f}'.format(prob)
@@ -596,8 +601,9 @@ if __name__ == '__main__':
     fitmodel.plotOn(frame, RF.Components('fitmodel_signal'),RF.LineColor(ROOT.kRed), RF.LineStyle(ROOT.kDashed), RF.Name('signal'))
     fitmodel.plotOn(frame, RF.Components('fitmodel_bkg_comb'),RF.LineColor(ROOT.kOrange), RF.LineStyle(ROOT.kDashed), RF.Name('bkg_comb'))
     fitmodel.plotOn(frame, RF.LineColor(ROOT.kBlue)) # full model at the end !
-    fitmodel.paramOn(frame, RF.ShowConstants(ROOT.kTRUE),RF.Format('NEU',RF.AutoPrecision()),RF.Layout(0.65,0.93,0.92))
-    frame.getAttText().SetTextSize(0.02) #
+    if doDrawParameters: 
+      fitmodel.paramOn(frame, RF.ShowConstants(ROOT.kTRUE),RF.Format('NEU',RF.AutoPrecision()),RF.Layout(0.65,0.93,0.92))
+      frame.getAttText().SetTextSize(0.02) #
     frame2 = mass.frame(RF.Title(' '))
     chisq,prob=getChiSquare(fitmodel,Rmc)
     frame2 = mass.frame(RF.Title(' '))
@@ -617,8 +623,15 @@ if __name__ == '__main__':
     if doAddJpsiPi: 
       fitmodel.plotOn(frame, RF.Components('fitmodel_bkg_peak'), RF.LineColor(ROOT.kMagenta), RF.LineStyle(ROOT.kDashed), RF.Name('bkg_peak'))
     fitmodel.plotOn(frame, RF.LineColor(ROOT.kBlue)) # full model at the end !
-    fitmodel.paramOn(frame, RF.ShowConstants(ROOT.kTRUE),RF.Format('NEU',RF.AutoPrecision()),RF.Layout(0.65,0.93,0.92))
-    frame.getAttText().SetTextSize(0.02) #
+    if doDrawParameters:
+      fitmodel.paramOn(frame, RF.ShowConstants(ROOT.kTRUE),RF.Format('NEU',RF.AutoPrecision()),RF.Layout(0.65,0.93,0.92))
+      frame.getAttText().SetTextSize(0.02) #
+    leg = defaultLegend(0.50,0.60,0.86,0.86) # ROOT.TLegend(0.65,0.73,0.86,0.87)
+    leg.AddEntry(frame.findObject("Rdata"),"Data", "EP")
+    leg.AddEntry(frame.findObject("fitmodel_signal"),"Signal","L")
+    leg.AddEntry(frame.findObject("fitmodel_bkg_comb"),"Combinatorial bkg", "L")
+    leg.AddEntry(frame.findObject("fitmodel_bkg_prec"),"Partially reconstructed bkg", "L")
+    
     frame2 = mass.frame(RF.Title(' '))
   
     chisq,prob=getChiSquare(fitmodel,Rdata)
@@ -659,7 +672,7 @@ if __name__ == '__main__':
     if doNewSelection and opt.whichCutRemoved is not None:
       selectionlabel += '_no{}'.format(removed_selection_label) 
     label='data_sig{}_bkg{}_{}{}'.format(whichSignalModel,whichPRecBkgModel,selectionlabel,fiduciallabel) 
-    drawPlot(frame,frame2,chisq,prob,sigmaBpm,sigmaBpmErr,lumi,label)
+    drawPlot(frame,frame2,chisq,prob,sigmaBpm,sigmaBpmErr,lumi,label,leg)
 
     with open('fit{}.txt'.format(label), 'w') as fout:
       fout.write('Extracted value of sigma (fb) = {:.2e}\n'.format(sigmaBpm))
