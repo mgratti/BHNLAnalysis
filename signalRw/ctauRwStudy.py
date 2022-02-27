@@ -1,3 +1,7 @@
+'''
+Script to check closure of ctau reweighting on reco-level kinematic quantities
+'''
+
 import ROOT
 import os
 import sys

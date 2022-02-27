@@ -1,3 +1,9 @@
+'''
+Script to calculate the inclusive B->Jpsi(mumu)K channel cross-section
+Please see https://indico.cern.ch/event/1099857/contributions/4627416/attachments/2353189/4020897/2021_11_30_Bpark_SignalNorm.pdf
+'''
+
+
 import ROOT
 from ROOT import RooFit as RF
 import sys
