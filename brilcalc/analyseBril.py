@@ -2,7 +2,10 @@ import csv
 import os
 import pandas as pd
 
-
+'''
+Script to perform several luminosity caltulations for the B-parking dataset (see details below)
+Results of the calculations are reported in Tables 2-4 of the AN
+'''
 # 1. 'lumiEach' :    Get the luminosity associated to each specified path for the entire dataset and divided in periods (A,B,C,D)
 # 2. 'lumiOverlap':  Get the overlap luminosity between specified trigger paths
 # 3. 'lumiTot':      Get the luminosity associated to the sum of the specified trigger paths, after removing overlaps
