@@ -1,5 +1,6 @@
 '''
-Study different PU options and relative consequences in terms of PU-reweighting
+Script to study different PU options and relative consequences in terms of PU-reweighting
+see slides 10-11 of https://indico.cern.ch/event/1054487/contributions/4431389/attachments/2278382/3873756/2021_07_07_Bpark_Signal_forEXO.pdf
 '''
 
 from ROOT import *
